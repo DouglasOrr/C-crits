@@ -9,6 +9,8 @@ Core:
 - UI to show what state a critter is in, e.g. colour
 - Step through execution
 - Autocomplete crasm instructions
+- Crasm syntax errors
+- Crasm runtime errors
 - Levels
 - Assistance/help
 
@@ -23,3 +25,7 @@ Audio:
 - Music (generative?)
 - Dynamic music based on game state
 - Sound effects for {spawn, death, attack, win, lose, deploy}
+
+Other:
+
+- Add favicon
