@@ -13,6 +13,7 @@ Core:
 - Crasm runtime errors
 - Levels
 - Assistance/help
+- Integrate a rich editor
 
 Graphics:
 

@@ -1,36 +1,41 @@
 import * as THREE from "three";
 
-window.onload = () => {
-  console.log("hello from index.ts");
+const S = {
+  hwidth: 100,
+};
 
+window.onload = () => {
   const scene = new THREE.Scene();
-  const camera = new THREE.PerspectiveCamera(
-    75,
-    window.innerWidth / window.innerHeight,
-    0.1,
-    1000
+  scene.background = new THREE.Color(0x000000);
+
+  const aspect = window.innerWidth / window.innerHeight;
+  const camera = new THREE.OrthographicCamera(
+    -S.hwidth,
+    S.hwidth,
+    S.hwidth / aspect,
+    -S.hwidth / aspect
   );
+  camera.position.z = 10;
+
   const renderer = new THREE.WebGLRenderer();
   renderer.setSize(window.innerWidth, window.innerHeight);
   document.body.appendChild(renderer.domElement);
-
-  const geometry = new THREE.BoxGeometry(1, 1, 1);
-  const material = new THREE.MeshBasicMaterial({ color: 0x0088ff });
-  const cube = new THREE.Mesh(geometry, material);
-  scene.add(cube);
-  scene.background = new THREE.Color(0xffffff);
-  camera.position.z = 5;
-
   window.addEventListener("resize", () => {
-    camera.aspect = window.innerWidth / window.innerHeight;
+    const aspect = window.innerWidth / window.innerHeight;
+    camera.top = S.hwidth / aspect;
+    camera.bottom = -S.hwidth / aspect;
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
   });
 
+  const map = new THREE.TextureLoader().load("textures/crit.png");
+  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: map }));
+  scene.add(sprite);
+  sprite.scale.set(5, 5, 1);
+
   renderer.setAnimationLoop(() => {
-    cube.rotation.x += 0.01;
-    cube.rotation.y += 0.01;
-    camera.position.z += 0.01;
+    sprite.position.x += 1 / 60;
+    sprite.position.y += 1 / 60;
     renderer.render(scene, camera);
   });
 };
