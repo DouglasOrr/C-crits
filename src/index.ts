@@ -18,8 +18,14 @@ window.onload = () => {
   const material = new THREE.MeshBasicMaterial({ color: 0x0088ff });
   const cube = new THREE.Mesh(geometry, material);
   scene.add(cube);
-
+  scene.background = new THREE.Color(0xffffff);
   camera.position.z = 5;
+
+  window.addEventListener("resize", () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  });
 
   renderer.setAnimationLoop(() => {
     cube.rotation.x += 0.01;
