@@ -21,4 +21,9 @@ body {
 }
 #editor {
   resize: none;
+  padding: 8pt;
+  font-size: large;
+  background-color: #222;
+  color: #fff;
+  border: none;
 }
