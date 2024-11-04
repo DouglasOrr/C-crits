@@ -2,3 +2,23 @@ body {
   background-color: #000;
   margin: 0;
 }
+#root {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  position: absolute;
+  top: 0px;
+  left: 0px;
+  right: 0px;
+  bottom: 0px;
+}
+#col-sim {
+  display: grid;
+  min-width: 0px;
+  min-height: 0px;
+}
+#col-editor {
+  display: grid;
+}
+#editor {
+  resize: none;
+}
