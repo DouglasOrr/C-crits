@@ -1,6 +1,7 @@
 import * as THREE from "three"
-import { Updateable } from "./common"
+import { Updateable, Vec2 } from "./common"
 import * as Crits from "./crits"
+import * as Crasm from "./crasm"
 
 const S = {
   hwidth: 100,
@@ -25,6 +26,7 @@ class CritView implements Updateable {
 }
 
 window.onload = () => {
+  // Rendering
   const container = document.getElementById("col-sim")!
   const scene = new THREE.Scene()
   scene.background = new THREE.Color(0x000000)
@@ -58,5 +60,20 @@ window.onload = () => {
     crits.forEach((crit) => crit.update())
     views.forEach((view) => view.update())
     renderer.render(scene, camera)
+  })
+
+  // Input
+  const editor = document.getElementById("editor")! as HTMLTextAreaElement
+  editor.addEventListener("keydown", (event) => {
+    if (event.ctrlKey && event.key === "Enter") {
+      const program = Crasm.parse(editor.value!)
+      crits.forEach((crit) => Crasm.run(program, crit.memory))
+      // TODO
+      crits.forEach((crit) => {
+        if (crit.memory["$dest"]) {
+          crit.pos = crit.memory["$dest"] as Vec2
+        }
+      })
+    }
   })
 }
