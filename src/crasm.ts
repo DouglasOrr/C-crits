@@ -43,6 +43,10 @@ export function run(program: Program, memory: Memory): void {
 
 // Parsing
 
+export function emptyProgram(): Program {
+  return { ops: [], labels: {} }
+}
+
 export function tokenise(line: string): string[] {
   const withoutComments = (line.match(/^([^;]+)/) ?? [""])[0]
   return withoutComments.match(/([^ ]+)/g) ?? []
