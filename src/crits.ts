@@ -11,10 +11,11 @@ import * as Crasm from "./crasm"
 
 export const S = {
   dt: 1 / 200, // s
-  radius: 3, // m
+  radius: 1.5, // m
   velocity: 20, // m/s
   rotationRate: 2, // rad/s
   destOffsetRadius: 5, // m
+  maxCritters: 1000, // #
 }
 
 function sampleDisc(radius: number): Vec2 {
@@ -28,6 +29,8 @@ export class Crits {
   // Per-critter
   position: Vec2[] = []
   angle: number[] = []
+  speed: number[] = []
+  angularVelocity: number[] = []
   memory: Crasm.Memory[] = []
   // (randomness)
   lastDest: Vec2[] = []
@@ -38,6 +41,8 @@ export class Crits {
   add(position: Vec2, angle: number) {
     this.position.push(position)
     this.angle.push(angle)
+    this.speed.push(0)
+    this.angularVelocity.push(0)
     this.memory.push({})
     this.lastDest.push(position)
     this.destOffset.push([0, 0])
@@ -63,15 +68,25 @@ export class Crits {
         if (targetDistance < maxMovement) {
           position[0] = dest[0]
           position[1] = dest[1]
+          this.speed[i] = targetDistance / S.dt
+          this.angularVelocity[i] = 0
         } else if (Math.abs(delta) < maxRotation) {
           this.angle[i] = targetAngle
           position[0] += Math.sin(targetAngle) * maxMovement
           position[1] += Math.cos(targetAngle) * maxMovement
+          this.speed[i] = S.velocity
+          this.angularVelocity[i] = delta / S.dt
         } else {
           this.angle[i] += Math.sign(delta) * maxRotation
+          this.speed[i] = 0
+          this.angularVelocity[i] = S.rotationRate
         }
       }
     })
+  }
+
+  get length(): number {
+    return this.position.length
   }
 
   forEachIndex(fn: (index: number) => void): void {

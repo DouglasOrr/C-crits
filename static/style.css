@@ -1,6 +1,14 @@
 body {
   background-color: #000;
   margin: 0;
+  font-family: monospace;
+}
+#fps-counter {
+  position: fixed;
+  top: 0.5em;
+  left: 0.5em;
+  color: #fff;
+  z-index: 1000;
 }
 #root {
   display: grid;
