@@ -1,12 +1,13 @@
 import * as THREE from "three"
 import * as Crits from "./crits"
+import * as Maps from "./maps"
 
 const critsVertexShader = `
 precision highp float;
 
 uniform mat4 projectionMatrix;
 uniform mat4 modelViewMatrix;
-attribute vec3 position;
+attribute vec2 position;
 attribute vec2 uv;
 attribute float side;
 attribute vec2 offset;
@@ -44,8 +45,11 @@ export class CritsView {
   private geometry: THREE.InstancedBufferGeometry
   private nFrames: number
 
-  constructor(private crits: Crits.Crits, scene: THREE.Scene) {
-    const texture = new THREE.TextureLoader().load("textures/crit_a4.png")
+  constructor(
+    private crits: Crits.Crits,
+    scene: THREE.Scene,
+    texture: THREE.Texture
+  ) {
     this.nFrames = 4
     const material = new THREE.RawShaderMaterial({
       uniforms: {
@@ -60,13 +64,30 @@ export class CritsView {
     this.geometry = new THREE.InstancedBufferGeometry()
     this.geometry.instanceCount = 0
 
-    const g = new THREE.PlaneGeometry(Crits.S.radius, 2 * Crits.S.radius)
-    g.translate(Crits.S.radius / 2, 0, 0)
-    this.geometry.setIndex(g.index)
-    this.geometry.setAttribute("position", g.getAttribute("position"))
-    this.geometry.setAttribute("uv", g.getAttribute("uv"))
-    g.dispose()
+    // Buffer data
+    this.geometry.setIndex([0, 2, 1, 2, 3, 1])
+    const R = Crits.S.radius
+    this.geometry.setAttribute(
+      "position",
+      new THREE.BufferAttribute(
+        new Float32Array([0, R, /**/ R, R, /**/ 0, -R, /**/ R, -R]),
+        2
+      )
+    )
+    // Set bounding sphere to avoid an error with 2D position
+    this.geometry.boundingSphere = new THREE.Sphere(new THREE.Vector3(), R)
 
+    // Shrink the u-coordinate to avoid spritesheet artifacts
+    const uMax = 1 - this.nFrames / texture.image.width
+    this.geometry.setAttribute(
+      "uv",
+      new THREE.BufferAttribute(
+        new Float32Array([0, 1, /**/ uMax, 1, /**/ 0, 0, /**/ uMax, 0]),
+        2
+      )
+    )
+
+    // Instance data
     const instances = 2 * Crits.S.maxCritters
     Object.entries({
       side: new Float32Array(instances * 1).map((_, i) =>
@@ -83,6 +104,7 @@ export class CritsView {
       attribute.setUsage(THREE.DynamicDrawUsage)
       this.geometry.setAttribute(name, attribute)
     })
+
     scene.add(new THREE.Mesh(this.geometry, material))
   }
 
@@ -109,5 +131,24 @@ export class CritsView {
     offset.needsUpdate = true
     angle.needsUpdate = true
     frame.needsUpdate = true
+  }
+}
+
+export class MapView {
+  constructor(map: Maps.Map, scene: THREE.Scene) {
+    for (let i = 0; i < map.tiles.length; i++) {
+      const x = i % map.width
+      const y = Math.floor(i / map.width)
+      const geometry = new THREE.PlaneGeometry(map.scale, map.scale)
+      const material = new THREE.MeshBasicMaterial({
+        color: map.tiles[i] === Maps.Tile.Water ? 0xff0000ff : 0xff808080,
+      })
+      const mesh = new THREE.Mesh(geometry, material)
+      mesh.position.set((x + 0.5) * map.scale, (y + 0.5) * map.scale, 0)
+      scene.add(mesh)
+    }
+  }
+  update(dt: number): void {
+    // Nothing to do
   }
 }

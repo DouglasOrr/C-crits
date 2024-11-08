@@ -11,10 +11,10 @@ import * as Crasm from "./crasm"
 
 export const S = {
   dt: 1 / 200, // s
-  radius: 1.5, // m
-  velocity: 20, // m/s
+  radius: 0.4, // m
+  velocity: 4, // m/s
   rotationRate: 2, // rad/s
-  destOffsetRadius: 5, // m
+  destOffsetRadius: 1, // m
   maxCritters: 1000, // #
 }
 

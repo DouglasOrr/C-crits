@@ -25,3 +25,5 @@ export function randn(): number {
   const b = Math.random()
   return Math.sqrt(-2 * Math.log(a)) * Math.cos(2 * Math.PI * b)
 }
+
+export type Image32 = { width: number; height: number; data: Uint32Array }

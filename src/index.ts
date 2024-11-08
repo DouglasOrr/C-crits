@@ -1,70 +1,106 @@
 import * as THREE from "three"
+import { Image32 } from "./common"
 import * as Crasm from "./crasm"
 import * as Crits from "./crits"
+import * as Maps from "./maps"
 import * as Views from "./views"
 
-const S = {
-  hwidth: 100,
-}
-
-function createFpsCounter(): () => void {
+function createFpsCounter(): { update: () => void } {
   const fpsCounter = document.getElementById("fps-counter")
   let frameCount = 0
   setInterval(() => {
     fpsCounter!.textContent = `${frameCount} fps`
     frameCount = 0
   }, 1000)
-  return () => {
-    frameCount += 1
+  return {
+    update: () => {
+      frameCount += 1
+    },
   }
 }
 
-window.onload = () => {
+async function loadImage(src: string): Promise<Image32> {
+  const img = new Image()
+  img.src = src
+  await img.decode()
+  const ctx = document.createElement("canvas").getContext("2d")!
+  ctx.drawImage(img, 0, 0)
+  const imageData = ctx.getImageData(0, 0, img.width, img.height)
+  const uint32Array = new Uint32Array(imageData.data.buffer)
+  return {
+    width: img.width,
+    height: img.height,
+    data: uint32Array,
+  }
+}
+
+async function loadTexture(src: string): Promise<THREE.Texture> {
+  return new Promise((resolve) => {
+    new THREE.TextureLoader().load(src, (texture) => {
+      resolve(texture)
+    })
+  })
+}
+
+function updateCamera(
+  camera: THREE.OrthographicCamera,
+  sim: HTMLElement,
+  map: Maps.Map
+) {
+  const mapWidth = map.width * map.scale
+  const mapHeight = map.height * map.scale
+  const scale = Math.min(
+    sim.offsetWidth / mapWidth,
+    sim.offsetHeight / mapHeight
+  )
+  const padWidth = (sim.offsetWidth / scale - mapWidth) / 2
+  const padHeight = (sim.offsetHeight / scale - mapHeight) / 2
+  camera.left = -padWidth
+  camera.right = mapWidth + padWidth
+  camera.bottom = -padHeight
+  camera.top = mapHeight + padHeight
+  camera.updateProjectionMatrix()
+}
+
+async function load(page: { sim: HTMLElement; editor: HTMLTextAreaElement }) {
   // World
   const crits = new Crits.Crits()
-  for (let i = 0; i < 1000; i++) {
+  const map = Maps.fromImage(await loadImage("maps/map_0.png"))
+  for (let i = 0; i < map.basePosition.length; i++) {
+    const p = map.basePosition[i]
     crits.add(
-      [
-        S.hwidth * 2 * Math.random() - S.hwidth,
-        S.hwidth * 2 * Math.random() - S.hwidth,
-      ],
-      2 * Math.PI * Math.random()
+      [(p[0] + 0.5) * map.scale, (p[1] + 0.5) * map.scale],
+      map.baseDirection[i]
     )
   }
-  // crits.add([0, 0], 0)
-  // crits.add([10, -10], Math.PI / 4)
-
-  // Rendering
-  const container = document.getElementById("col-sim")!
-  const scene = new THREE.Scene()
-  scene.background = new THREE.Color(0x808080)
-  const aspect = container.offsetWidth / container.offsetHeight
-  const camera = new THREE.OrthographicCamera(
-    -S.hwidth,
-    S.hwidth,
-    S.hwidth / aspect,
-    -S.hwidth / aspect
-  )
-  camera.position.z = 10
-  const renderer = new THREE.WebGLRenderer()
-  renderer.setSize(container.offsetWidth, container.offsetHeight)
-  container.appendChild(renderer.domElement)
-  window.addEventListener("resize", () => {
-    const aspect = container.offsetWidth / container.offsetHeight
-    camera.top = S.hwidth / aspect
-    camera.bottom = -S.hwidth / aspect
-    camera.updateProjectionMatrix()
-    renderer.setSize(container.offsetWidth, container.offsetHeight)
-  })
-  const critsView = new Views.CritsView(crits, scene)
 
   // Input
-  const editor = document.getElementById("editor")! as HTMLTextAreaElement
-  editor.addEventListener("keydown", (event) => {
+  page.editor.addEventListener("keydown", (event) => {
     if (event.ctrlKey && event.key === "Enter") {
-      crits.program = Crasm.parse(editor.value!)
+      crits.program = Crasm.parse(page.editor.value!)
     }
   })
+
+  // Rendering
+  const renderer = new THREE.WebGLRenderer()
+  renderer.setSize(page.sim.offsetWidth, page.sim.offsetHeight)
+  page.sim.appendChild(renderer.domElement)
+
+  const camera = new THREE.OrthographicCamera()
+  camera.position.z = 1
+  updateCamera(camera, page.sim, map)
+  window.addEventListener("resize", () => {
+    renderer.setSize(page.sim.offsetWidth, page.sim.offsetHeight)
+    updateCamera(camera, page.sim, map)
+  })
+
+  const scene = new THREE.Scene()
+  const critsView = new Views.CritsView(
+    crits,
+    scene,
+    await loadTexture("textures/crit_a4.png")
+  )
+  const mapView = new Views.MapView(map, scene)
 
   // Render and physics loop
   let updateTime: number | undefined = undefined
@@ -80,9 +116,18 @@ window.onload = () => {
         updateTime += Crits.S.dt
       }
     }
-    critsView.update(time - (animationTime ?? time))
+    const dt = time - (animationTime ?? time)
+    critsView.update(dt)
+    mapView.update(dt)
     renderer.render(scene, camera)
-    fpsCounter()
+    fpsCounter.update()
     animationTime = time
+  })
+}
+
+window.onload = () => {
+  load({
+    sim: document.getElementById("col-sim")!,
+    editor: document.getElementById("editor")! as HTMLTextAreaElement,
   })
 }
