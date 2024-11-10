@@ -102,6 +102,32 @@ async function load(page: { sim: HTMLElement; editor: HTMLTextAreaElement }) {
   )
   const mapView = new Views.MapView(map, scene)
 
+  const pathDemo = Maps.findShortestPaths(map, [11, 11])
+  // temporary demo vis
+  for (let i = 0; i < pathDemo.length; i++) {
+    if (pathDemo[i] < 8) {
+      const x = i % map.width
+      const y = Math.floor(i / map.width)
+      const angle = pathDemo[i] * (Math.PI / 4)
+      scene.add(
+        new THREE.Line(
+          new THREE.BufferGeometry().setFromPoints([
+            new THREE.Vector3(x + 0.5, y + 0.5, 0),
+            new THREE.Vector3(
+              x + 0.5 * (1 + Math.sin(angle)),
+              y + 0.5 * (1 + Math.cos(angle)),
+              0
+            ),
+          ]),
+          new THREE.LineBasicMaterial({
+            color: 0xffff0000,
+            linewidth: 2,
+          })
+        )
+      )
+    }
+  }
+
   // Render and physics loop
   let updateTime: number | undefined = undefined
   let animationTime: number | undefined = undefined
