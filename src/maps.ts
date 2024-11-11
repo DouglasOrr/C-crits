@@ -1,4 +1,4 @@
-import { Image32, Vec2 } from "./common"
+import { Image32, v2Equal, Vec2 } from "./common"
 
 export enum Tile {
   Land,
@@ -54,30 +54,41 @@ export function fromImage(img: Image32): Map {
 // A binary heap priority queue, with a mapping from id to index
 // and a decreaseCost method, for sake of Dijsktra's algorithm
 class Queue {
-  ids: number[] = []
-  costs: number[] = []
-  id_to_index: (number | undefined)[] = []
+  private ids: Uint32Array
+  private costs: Float32Array
+  private idToIndex: Int32Array
+  private _length: number = 0
 
-  push(id: any, cost: number): void {
-    this.ids.push(id)
-    this.costs.push(cost)
-    this.id_to_index[id] = this.ids.length - 1
-    this.decreaseCost(this.ids.length - 1, cost)
+  constructor(n: number) {
+    this.ids = new Uint32Array(n)
+    this.costs = new Float32Array(n)
+    this.idToIndex = new Int32Array(n).fill(-1)
   }
-  swap(i0: number, i1: number): void {
-    this.id_to_index[this.ids[i0]] = i1
-    this.id_to_index[this.ids[i1]] = i0
+
+  get length(): number {
+    return this._length
+  }
+  contains(id: number): boolean {
+    return this.idToIndex[id] !== -1
+  }
+  getCost(id: number): number {
+    return this.costs[this.idToIndex[id]]
+  }
+  push(id: any, cost: number): void {
+    this.ids[this._length] = id
+    this.costs[this._length] = cost
+    this.idToIndex[id] = this._length
+    this._length++
+    this.decreaseCost(id, cost)
+  }
+  private swap(i0: number, i1: number): void {
+    this.idToIndex[this.ids[i0]] = i1
+    this.idToIndex[this.ids[i1]] = i0
     ;[this.costs[i0], this.costs[i1]] = [this.costs[i1], this.costs[i0]]
     ;[this.ids[i0], this.ids[i1]] = [this.ids[i1], this.ids[i0]]
   }
-  contains(id: number): boolean {
-    return this.id_to_index[id] !== undefined
-  }
-  getCost(id: number): number {
-    return this.costs[this.id_to_index[id]!]
-  }
   decreaseCost(id: number, cost: number): void {
-    let index = this.id_to_index[id]!
+    let index = this.idToIndex[id]
     this.costs[index] = cost
     while (index > 0) {
       const parent = Math.floor((index - 1) / 2)
@@ -89,30 +100,25 @@ class Queue {
     }
   }
   pop(): [number, number] {
-    if (this.ids.length === 0) {
+    if (this._length === 0) {
       throw new Error("Queue is empty")
     }
     const [result, resultCost] = [this.ids[0], this.costs[0]]
-    if (this.ids.length === 1) {
-      this.id_to_index[this.ids[0]] = undefined
-      this.ids.pop()
-      this.costs.pop()
-      return [result, resultCost]
-    }
-    this.id_to_index[this.ids[0]] = undefined
-    this.ids[0] = this.ids.pop()!
-    this.costs[0] = this.costs.pop()!
-    this.id_to_index[this.ids[0]] = 0
+    this._length--
+    this.idToIndex[this.ids[0]] = -1
+    this.ids[0] = this.ids[this._length]
+    this.costs[0] = this.costs[this._length]
+    this.idToIndex[this.ids[0]] = 0
 
     let index = 0
     while (true) {
       const left = 2 * index + 1
       const right = 2 * index + 2
-      if (left >= this.ids.length) {
+      if (left >= this._length) {
         break
       }
       const smaller =
-        this.costs.length <= right || this.costs[left] < this.costs[right]
+        this._length <= right || this.costs[left] < this.costs[right]
           ? left
           : right
       if (this.costs[smaller] < this.costs[index]) {
@@ -126,38 +132,38 @@ class Queue {
   }
 }
 
+export const Directions = [
+  [0, 1],
+  [1, 1],
+  [1, 0],
+  [1, -1],
+  [0, -1],
+  [-1, -1],
+  [-1, 0],
+  [-1, 1],
+]
+export const NoDirection = 255
+
 // Return a mapping from index to direction, for all-points shortest path to start
-// The direction is in PI/4 increments, 0 is up, 1 is up-right, etc.
-// Unreachable & `end` tiles are marked with 255.
+// The direction is in PI/4 increments, 0 is up, 1 is up-right, etc (see `Directions`).
+// The `end` tile is marked with 255.
 export function findShortestPaths(map: Map, end: Vec2): Uint8Array {
-  const paths = new Uint8Array(map.width * map.height).fill(255)
-  const queue = new Queue()
+  const paths = new Uint8Array(map.width * map.height).fill(NoDirection)
+  const queue = new Queue(map.width * map.height)
   queue.push(end[1] * map.width + end[0], 0)
   const visited: boolean[] = new Array(map.width * map.height).fill(false)
-  while (queue.ids.length > 0) {
+  while (queue.length > 0) {
     const [index, cost] = queue.pop()
     visited[index] = true
-    for (let [d, dx, dy] of [
-      [0, 0, -1],
-      [1, -1, -1],
-      [2, -1, 0],
-      [3, -1, 1],
-      [4, 0, 1],
-      [5, 1, 1],
-      [6, 1, 0],
-      [7, 1, -1],
-    ]) {
-      const x = (index % map.width) + dx
-      const y = Math.floor(index / map.width) + dy
+    Directions.map(([dx, dy], d) => {
+      const x = (index % map.width) - dx
+      const y = Math.floor(index / map.width) - dy
       const nextIndex = y * map.width + x
-      if (
-        0 <= x &&
-        x < map.width &&
-        0 <= y &&
-        y < map.height &&
-        map.tiles[nextIndex] !== Tile.Water
-      ) {
-        const nextCost = cost + Math.sqrt(Math.abs(dx) + Math.abs(dy))
+      if (0 <= x && x < map.width && 0 <= y && y < map.height) {
+        const nextCost =
+          cost +
+          Math.sqrt(Math.abs(dx) + Math.abs(dy)) +
+          1000 * +(map.tiles[nextIndex] === Tile.Water)
         if (queue.contains(nextIndex)) {
           if (nextCost < queue.getCost(nextIndex)) {
             queue.decreaseCost(nextIndex, nextCost)
@@ -168,7 +174,27 @@ export function findShortestPaths(map: Map, end: Vec2): Uint8Array {
           paths[nextIndex] = d
         }
       }
-    }
+    })
   }
   return paths
+}
+
+// Lazily compute and cache shortest paths to all points
+export class Pathfinder {
+  private endToPaths: Uint8Array[]
+  constructor(private map: Map) {
+    this.endToPaths = new Array(map.width * map.height).fill(null)
+  }
+  direction(start: Vec2, end: Vec2): number {
+    if (v2Equal(start, end)) {
+      return NoDirection
+    }
+    const startIndex = start[1] * this.map.width + start[0]
+    const endIndex = end[1] * this.map.width + end[0]
+    let paths = this.endToPaths[endIndex]
+    if (paths === null) {
+      paths = this.endToPaths[endIndex] = findShortestPaths(this.map, end)
+    }
+    return paths[startIndex]
+  }
 }

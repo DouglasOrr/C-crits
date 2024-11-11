@@ -64,8 +64,8 @@ function updateCamera(
 
 async function load(page: { sim: HTMLElement; editor: HTMLTextAreaElement }) {
   // World
-  const crits = new Crits.Crits()
   const map = Maps.fromImage(await loadImage("maps/map_0.png"))
+  const crits = new Crits.Crits()
   for (let i = 0; i < map.basePosition.length; i++) {
     const p = map.basePosition[i]
     crits.add(
@@ -102,8 +102,8 @@ async function load(page: { sim: HTMLElement; editor: HTMLTextAreaElement }) {
   )
   const mapView = new Views.MapView(map, scene)
 
-  const pathDemo = Maps.findShortestPaths(map, [11, 11])
   // temporary demo vis
+  const pathDemo = Maps.findShortestPaths(map, [11, 11])
   for (let i = 0; i < pathDemo.length; i++) {
     if (pathDemo[i] < 8) {
       const x = i % map.width
