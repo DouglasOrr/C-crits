@@ -1,28 +1,15 @@
-import {
-  Vec2,
-  distanceBetween,
-  angleBetween,
-  angleBetweenAngle,
-  randn,
-  v2Equal,
-  v2Add,
-} from "./common"
+import { Vec2, angleBetweenAngle, v2Floor } from "./common"
 import * as Crasm from "./crasm"
+import * as Maps from "./maps"
 
 export const S = {
   dt: 1 / 200, // s
   radius: 0.4, // m
-  velocity: 4, // m/s
+  speed: 4, // m/s
+  waterSpeed: 0.4, // m/s
   rotationRate: 2, // rad/s
   destOffsetRadius: 1, // m
   maxCritters: 1000, // #
-}
-
-function sampleDisc(radius: number): Vec2 {
-  // Sample from a 3-sphere and project onto a 2-ball
-  const x = randn(), y = randn(), z = randn(), w = randn() // prettier-ignore
-  const r = Math.hypot(x, y, z, w)
-  return [(x / r) * radius, (y / r) * radius]
 }
 
 export class Crits {
@@ -32,11 +19,15 @@ export class Crits {
   speed: number[] = []
   angularVelocity: number[] = []
   memory: Crasm.Memory[] = []
-  // (randomness)
-  lastDest: Vec2[] = []
-  destOffset: Vec2[] = []
   // Common
   program: Crasm.Program = Crasm.emptyProgram()
+  map: Maps.Map
+  pathfinder: Maps.Pathfinder
+
+  constructor(map: Maps.Map) {
+    this.map = map
+    this.pathfinder = new Maps.Pathfinder(map)
+  }
 
   add(position: Vec2, angle: number) {
     this.position.push(position)
@@ -44,8 +35,6 @@ export class Crits {
     this.speed.push(0)
     this.angularVelocity.push(0)
     this.memory.push({})
-    this.lastDest.push(position)
-    this.destOffset.push([0, 0])
   }
 
   update(): void {
@@ -53,33 +42,32 @@ export class Crits {
       Crasm.run(this.program, this.memory[i])
 
       if (this.memory[i]["$dest"]) {
-        const trueDest = this.memory[i]["$dest"] as Vec2
-        if (!v2Equal(this.lastDest[i], trueDest)) {
-          this.lastDest[i] = trueDest
-          this.destOffset[i] = sampleDisc(S.destOffsetRadius)
-        }
-        const dest = v2Add(trueDest, this.destOffset[i])
         const position = this.position[i]
-        const targetDistance = distanceBetween(position, dest)
-        const targetAngle = angleBetween(position, dest)
-        const delta = angleBetweenAngle(this.angle[i], targetAngle)
-        const maxRotation = S.dt * S.rotationRate
-        const maxMovement = S.dt * S.velocity
-        if (targetDistance < maxMovement) {
-          position[0] = dest[0]
-          position[1] = dest[1]
-          this.speed[i] = targetDistance / S.dt
-          this.angularVelocity[i] = 0
-        } else if (Math.abs(delta) < maxRotation) {
-          this.angle[i] = targetAngle
-          position[0] += Math.sin(targetAngle) * maxMovement
-          position[1] += Math.cos(targetAngle) * maxMovement
-          this.speed[i] = S.velocity
-          this.angularVelocity[i] = delta / S.dt
+        const pathDirection = this.pathfinder.direction(
+          position,
+          this.memory[i]["$dest"] as Vec2
+        )
+        if (pathDirection !== Maps.NoDirection) {
+          const tileXY = v2Floor(position)
+          const tile = this.map.tiles[tileXY[1] * this.map.width + tileXY[0]]
+          this.speed[i] = tile == Maps.Tile.Water ? S.waterSpeed : S.speed
+
+          const targetAngle = pathDirection * (Math.PI / 4)
+          const delta = angleBetweenAngle(this.angle[i], targetAngle)
+          if (Math.abs(delta) < S.dt * S.rotationRate) {
+            // Finish rotation and move
+            this.angularVelocity[i] = delta / S.dt
+            this.angle[i] = targetAngle
+            position[0] += Math.sin(this.angle[i]) * S.dt * this.speed[i]
+            position[1] += Math.cos(this.angle[i]) * S.dt * this.speed[i]
+          } else {
+            // Rotate before moving
+            this.angularVelocity[i] = Math.sign(delta) * S.rotationRate
+            this.angle[i] += this.angularVelocity[i] * S.dt
+          }
         } else {
-          this.angle[i] += Math.sign(delta) * maxRotation
           this.speed[i] = 0
-          this.angularVelocity[i] = S.rotationRate
+          this.angularVelocity[i] = 0
         }
       }
     })

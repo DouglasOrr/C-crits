@@ -27,23 +27,23 @@ describe("findShortestPaths", () => {
   it("should find shortest paths in a simple map", () => {
     const map: Map = {
       scale: 1,
-      width: 3,
+      width: 4,
       height: 3,
       // prettier-ignore
       tiles: [
-        Tile.Land, Tile.Land, Tile.Land,
-        Tile.Land, Tile.Water, Tile.Water,
-        Tile.Land, Tile.Land, Tile.Land,
+        Tile.Land, Tile.Land, Tile.Land, Tile.Land,
+        Tile.Land, Tile.Land, Tile.Water, Tile.Water,
+        Tile.Land, Tile.Land, Tile.Land, Tile.Land,
       ],
       basePosition: [],
       baseDirection: [],
     }
-    const end: Vec2 = [1, 2]
+    const end: Vec2 = [2, 2]
     // prettier-ignore
-    const expected = new Uint8Array([
-      0, 7, 6,
-      1, 255, 255,
-      2, 255, 6,
+    const expected = new Uint8Array([ // note mirrored-y
+      1, 0, 6, 6,
+      1, 0, 0, 7,
+      2, 2, 255, 6,
     ])
     expect(findShortestPaths(map, end)).toEqual(expected)
   })

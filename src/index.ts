@@ -65,7 +65,7 @@ function updateCamera(
 async function load(page: { sim: HTMLElement; editor: HTMLTextAreaElement }) {
   // World
   const map = Maps.fromImage(await loadImage("maps/map_0.png"))
-  const crits = new Crits.Crits()
+  const crits = new Crits.Crits(map)
   for (let i = 0; i < map.basePosition.length; i++) {
     const p = map.basePosition[i]
     crits.add(
@@ -73,11 +73,14 @@ async function load(page: { sim: HTMLElement; editor: HTMLTextAreaElement }) {
       map.baseDirection[i]
     )
   }
+  crits.add([15, 15], 0)
 
   // Input
+  page.editor.value = window.localStorage.getItem("program") ?? ""
   page.editor.addEventListener("keydown", (event) => {
     if (event.ctrlKey && event.key === "Enter") {
       crits.program = Crasm.parse(page.editor.value!)
+      window.localStorage.setItem("program", page.editor.value!)
     }
   })
 
@@ -101,32 +104,6 @@ async function load(page: { sim: HTMLElement; editor: HTMLTextAreaElement }) {
     await loadTexture("textures/crit_a4.png")
   )
   const mapView = new Views.MapView(map, scene)
-
-  // temporary demo vis
-  const pathDemo = Maps.findShortestPaths(map, [11, 11])
-  for (let i = 0; i < pathDemo.length; i++) {
-    if (pathDemo[i] < 8) {
-      const x = i % map.width
-      const y = Math.floor(i / map.width)
-      const angle = pathDemo[i] * (Math.PI / 4)
-      scene.add(
-        new THREE.Line(
-          new THREE.BufferGeometry().setFromPoints([
-            new THREE.Vector3(x + 0.5, y + 0.5, 0),
-            new THREE.Vector3(
-              x + 0.5 * (1 + Math.sin(angle)),
-              y + 0.5 * (1 + Math.cos(angle)),
-              0
-            ),
-          ]),
-          new THREE.LineBasicMaterial({
-            color: 0xffff0000,
-            linewidth: 2,
-          })
-        )
-      )
-    }
-  }
 
   // Render and physics loop
   let updateTime: number | undefined = undefined

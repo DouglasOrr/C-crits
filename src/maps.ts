@@ -1,4 +1,4 @@
-import { Image32, v2Equal, Vec2 } from "./common"
+import { Image32, v2Equal, v2Floor, Vec2 } from "./common"
 
 export enum Tile {
   Land,
@@ -154,16 +154,22 @@ export function findShortestPaths(map: Map, end: Vec2): Uint8Array {
   const visited: boolean[] = new Array(map.width * map.height).fill(false)
   while (queue.length > 0) {
     const [index, cost] = queue.pop()
+    const x = index % map.width
+    const y = Math.floor(index / map.width)
     visited[index] = true
     Directions.map(([dx, dy], d) => {
-      const x = (index % map.width) - dx
-      const y = Math.floor(index / map.width) - dy
-      const nextIndex = y * map.width + x
-      if (0 <= x && x < map.width && 0 <= y && y < map.height) {
+      const nextX = x - dx
+      const nextY = y - dy
+      const nextIndex = nextY * map.width + nextX
+      if (0 <= nextX && nextX < map.width && 0 <= nextY && nextY < map.height) {
+        // Avoid diagonal shortcuts through water
+        const isSlow =
+          map.tiles[nextIndex] === Tile.Water ||
+          map.tiles[y * map.width + x - dx] === Tile.Water ||
+          map.tiles[(y - dy) * map.width + x] === Tile.Water
+        // Water is very slow
         const nextCost =
-          cost +
-          Math.sqrt(Math.abs(dx) + Math.abs(dy)) +
-          1000 * +(map.tiles[nextIndex] === Tile.Water)
+          cost + Math.sqrt(Math.abs(dx) + Math.abs(dy)) + 1000 * +isSlow
         if (queue.contains(nextIndex)) {
           if (nextCost < queue.getCost(nextIndex)) {
             queue.decreaseCost(nextIndex, nextCost)
@@ -186,6 +192,8 @@ export class Pathfinder {
     this.endToPaths = new Array(map.width * map.height).fill(null)
   }
   direction(start: Vec2, end: Vec2): number {
+    start = v2Floor(start)
+    end = v2Floor(end)
     if (v2Equal(start, end)) {
       return NoDirection
     }
