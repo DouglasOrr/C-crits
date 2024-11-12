@@ -3,16 +3,28 @@ import { Image32, v2Equal, v2Floor, Vec2 } from "./common"
 export enum Tile {
   Land,
   Water,
+  Base,
 }
 
 export type Map = {
-  scale: number
   width: number
   height: number
   tiles: Tile[] // (height * width)
   basePosition: Vec2[] // nBases
   baseDirection: number[] // nBases
 }
+
+export const Directions: Vec2[] = [
+  [0, 1],
+  [1, 1],
+  [1, 0],
+  [1, -1],
+  [0, -1],
+  [-1, -1],
+  [-1, 0],
+  [-1, 1],
+]
+export const NoDirection = 255
 
 export function fromImage(img: Image32): Map {
   const tiles = new Array(img.width * img.height).fill(Tile.Land)
@@ -25,12 +37,13 @@ export function fromImage(img: Image32): Map {
     if (px === 0xffff0000) {
       tiles[y * img.width + x] = Tile.Water
     }
-    // Bitwise ops are signed, >>> 0 casts to unsigned
-    if ((px & 0xff00f000) >>> 0 === 0xff00f000) {
+    // Note: bitwise ops are signed, >>> 0 casts to unsigned
+    else if ((px & 0xff00f000) >>> 0 === 0xff00f000) {
       const index = (px & 0x00000f00) >>> 8
-      const direction = (((px & 0x000f0000) >>> 16) * Math.PI) / 2
+      const direction = 2 * ((px & 0x000f0000) >>> 16)
       basePosition[index] = [x, y]
       baseDirection[index] = direction
+      tiles[y * img.width + x] = Tile.Base
     }
   }
   // Check we never missed a base
@@ -42,7 +55,6 @@ export function fromImage(img: Image32): Map {
     }
   }
   return {
-    scale: 1,
     width: img.width,
     height: img.height,
     tiles: tiles,
@@ -132,18 +144,6 @@ class Queue {
   }
 }
 
-export const Directions = [
-  [0, 1],
-  [1, 1],
-  [1, 0],
-  [1, -1],
-  [0, -1],
-  [-1, -1],
-  [-1, 0],
-  [-1, 1],
-]
-export const NoDirection = 255
-
 // Return a mapping from index to direction, for all-points shortest path to start
 // The direction is in PI/4 increments, 0 is up, 1 is up-right, etc (see `Directions`).
 // The `end` tile is marked with 255.
@@ -162,12 +162,11 @@ export function findShortestPaths(map: Map, end: Vec2): Uint8Array {
       const nextY = y - dy
       const nextIndex = nextY * map.width + nextX
       if (0 <= nextX && nextX < map.width && 0 <= nextY && nextY < map.height) {
-        // Avoid diagonal shortcuts through water
+        // Avoid moving into or taking diagonal shortcuts through non-land
         const isSlow =
-          map.tiles[nextIndex] === Tile.Water ||
-          map.tiles[y * map.width + x - dx] === Tile.Water ||
-          map.tiles[(y - dy) * map.width + x] === Tile.Water
-        // Water is very slow
+          map.tiles[nextIndex] !== Tile.Land ||
+          map.tiles[y * map.width + x - dx] !== Tile.Land ||
+          map.tiles[(y - dy) * map.width + x] !== Tile.Land
         const nextCost =
           cost + Math.sqrt(Math.abs(dx) + Math.abs(dy)) + 1000 * +isSlow
         if (queue.contains(nextIndex)) {

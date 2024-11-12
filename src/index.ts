@@ -47,18 +47,16 @@ function updateCamera(
   sim: HTMLElement,
   map: Maps.Map
 ) {
-  const mapWidth = map.width * map.scale
-  const mapHeight = map.height * map.scale
   const scale = Math.min(
-    sim.offsetWidth / mapWidth,
-    sim.offsetHeight / mapHeight
+    sim.offsetWidth / map.width,
+    sim.offsetHeight / map.height
   )
-  const padWidth = (sim.offsetWidth / scale - mapWidth) / 2
-  const padHeight = (sim.offsetHeight / scale - mapHeight) / 2
+  const padWidth = (sim.offsetWidth / scale - map.width) / 2
+  const padHeight = (sim.offsetHeight / scale - map.height) / 2
   camera.left = -padWidth
-  camera.right = mapWidth + padWidth
+  camera.right = map.width + padWidth
   camera.bottom = -padHeight
-  camera.top = mapHeight + padHeight
+  camera.top = map.height + padHeight
   camera.updateProjectionMatrix()
 }
 
@@ -66,14 +64,11 @@ async function load(page: { sim: HTMLElement; editor: HTMLTextAreaElement }) {
   // World
   const map = Maps.fromImage(await loadImage("maps/map_0.png"))
   const crits = new Crits.Crits(map)
-  for (let i = 0; i < map.basePosition.length; i++) {
-    const p = map.basePosition[i]
-    crits.add(
-      [(p[0] + 0.5) * map.scale, (p[1] + 0.5) * map.scale],
-      map.baseDirection[i]
-    )
+  for (let player = 0; player < map.basePosition.length; player++) {
+    for (let n = 0; n < 31; ++n) {
+      crits.spawn(player)
+    }
   }
-  crits.add([15, 15], 0)
 
   // Input
   page.editor.value = window.localStorage.getItem("program") ?? ""

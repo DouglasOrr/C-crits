@@ -13,13 +13,16 @@ attribute float side;
 attribute vec2 offset;
 attribute float angle;
 attribute float frame;
+attribute float player;
 
 varying vec2 vUv;
 varying float vFrame;
+varying float vPlayer;
 
 void main() {
     vUv = uv;
     vFrame = frame;
+    vPlayer = player;
     vec2 p = vec2(
         side * position.x * cos(angle) - position.y * sin(angle),
         side * position.x * sin(angle) + position.y * cos(angle)
@@ -34,10 +37,12 @@ uniform sampler2D tex;
 uniform int nFrames;
 varying vec2 vUv;
 varying float vFrame;
+varying float vPlayer;
 
 void main() {
+    vec4 tint = (vPlayer == 0.0) ? vec4(0.2, 0.2, 1, 1) : vec4(1, 0, 0, 1);
     float u = (vUv[0] + floor(vFrame)) / float(nFrames);
-    gl_FragColor = texture2D(tex, vec2(u, vUv[1]));
+    gl_FragColor = tint * texture2D(tex, vec2(u, vUv[1]));
 }
 `
 
@@ -96,6 +101,7 @@ export class CritsView {
       offset: new Float32Array(instances * 2),
       angle: new Float32Array(instances * 1),
       frame: new Float32Array(instances * 1),
+      player: new Float32Array(instances * 1),
     }).forEach(([name, a]) => {
       const attribute = new THREE.InstancedBufferAttribute(
         a,
@@ -113,6 +119,7 @@ export class CritsView {
     const offset = this.geometry.getAttribute("offset")
     const angle = this.geometry.getAttribute("angle")
     const frame = this.geometry.getAttribute("frame")
+    const player = this.geometry.getAttribute("player")
     this.crits.forEachIndex((i) => {
       offset.array.set(this.crits.position[i], 4 * i)
       offset.array.set(this.crits.position[i], 4 * i + 2)
@@ -127,10 +134,13 @@ export class CritsView {
           (frame.array[2 * i + 1] + dt * animationRate * this.nFrames) %
           this.nFrames
       }
+      player.array[2 * i] = this.crits.player[i]
+      player.array[2 * i + 1] = this.crits.player[i]
     })
     offset.needsUpdate = true
     angle.needsUpdate = true
     frame.needsUpdate = true
+    player.needsUpdate = true
   }
 }
 
@@ -139,12 +149,21 @@ export class MapView {
     for (let i = 0; i < map.tiles.length; i++) {
       const x = i % map.width
       const y = Math.floor(i / map.width)
-      const geometry = new THREE.PlaneGeometry(map.scale, map.scale)
+      const geometry = new THREE.PlaneGeometry(1, 1)
       const material = new THREE.MeshBasicMaterial({
-        color: map.tiles[i] === Maps.Tile.Water ? 0xff0000ff : 0xff808080,
+        color: (() => {
+          switch (map.tiles[i]) {
+            case Maps.Tile.Water:
+              return 0xff4040ff
+            case Maps.Tile.Land:
+              return 0xffa0a0a0
+            case Maps.Tile.Base:
+              return 0xff404040
+          }
+        })(),
       })
       const mesh = new THREE.Mesh(geometry, material)
-      mesh.position.set((x + 0.5) * map.scale, (y + 0.5) * map.scale, 0)
+      mesh.position.set(x + 0.5, y + 0.5, 0)
       scene.add(mesh)
     }
   }

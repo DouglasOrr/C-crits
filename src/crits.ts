@@ -1,24 +1,25 @@
-import { Vec2, angleBetweenAngle, v2Floor } from "./common"
+import { Vec2, angleBetweenAngle, v2Floor, v2Add } from "./common"
 import * as Crasm from "./crasm"
 import * as Maps from "./maps"
 
 export const S = {
   dt: 1 / 200, // s
-  radius: 0.4, // m
+  radius: 0.25, // m
   speed: 4, // m/s
   waterSpeed: 0.4, // m/s
   rotationRate: 2, // rad/s
-  destOffsetRadius: 1, // m
   maxCritters: 1000, // #
 }
 
 export class Crits {
   // Per-critter
+  player: number[] = []
   position: Vec2[] = []
   angle: number[] = []
   speed: number[] = []
   angularVelocity: number[] = []
   memory: Crasm.Memory[] = []
+
   // Common
   program: Crasm.Program = Crasm.emptyProgram()
   map: Maps.Map
@@ -29,12 +30,52 @@ export class Crits {
     this.pathfinder = new Maps.Pathfinder(map)
   }
 
-  add(position: Vec2, angle: number) {
+  spawn(player: number): void {
+    const base = v2Add(this.map.basePosition[player], [0.5, 0.5])
+    const baseDirection = (this.map.baseDirection[player] * Math.PI) / 4
+    const cosA = Math.cos(baseDirection)
+    const sinA = Math.sin(baseDirection)
+
+    for (let radius = 0.5 + S.radius; ; radius += 2 * S.radius) {
+      for (let offset = 0; offset <= 4 * radius; offset += S.radius) {
+        for (let sign = -1; sign <= 1; sign += 2) {
+          const d0: Vec2 = [
+            sign * Math.min(radius, offset, 4 * radius - offset),
+            Math.max(-radius, Math.min(radius, 2 * radius - offset)),
+          ]
+          const delta: Vec2 = [
+            d0[0] * cosA + d0[1] * sinA,
+            d0[0] * -sinA + d0[1] * cosA,
+          ]
+          const position = v2Add(base, delta)
+          if (!this.collide(position)) {
+            this.add(player, position, Math.atan2(delta[0], delta[1]))
+            return
+          }
+        }
+      }
+    }
+  }
+
+  private add(player: number, position: Vec2, angle: number): void {
+    this.player.push(player)
     this.position.push(position)
     this.angle.push(angle)
     this.speed.push(0)
     this.angularVelocity.push(0)
     this.memory.push({})
+  }
+
+  collide(position: Vec2): boolean {
+    // Exhaustive search for now
+    for (let i = 0; i < this.position.length; ++i) {
+      const dx = this.position[i][0] - position[0]
+      const dy = this.position[i][1] - position[1]
+      if (dx * dx + dy * dy < 4 * S.radius * S.radius) {
+        return true
+      }
+    }
+    return false
   }
 
   update(): void {
