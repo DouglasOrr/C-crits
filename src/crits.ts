@@ -1,4 +1,12 @@
-import { Vec2, angleBetweenAngle, v2Floor, v2Add } from "./common"
+import {
+  Vec2,
+  angleBetweenAngle,
+  v2Floor,
+  v2Add,
+  v2Equal,
+  clamp,
+  distanceBetween,
+} from "./common"
 import * as Crasm from "./crasm"
 import * as Maps from "./maps"
 
@@ -7,7 +15,9 @@ export const S = {
   radius: 0.25, // m
   speed: 4, // m/s
   waterSpeed: 0.4, // m/s
-  rotationRate: 2, // rad/s
+  rotationRate: 3, // rad/s
+  directionMoveTolerance: Math.PI / 4, // rad
+  avoidTolerance: 1.5, // # (multiplier)
   maxCritters: 1000, // #
 }
 
@@ -15,8 +25,8 @@ export class Crits {
   // Per-critter
   player: number[] = []
   position: Vec2[] = []
-  angle: number[] = []
   speed: number[] = []
+  angle: number[] = []
   angularVelocity: number[] = []
   memory: Crasm.Memory[] = []
 
@@ -28,6 +38,21 @@ export class Crits {
   constructor(map: Maps.Map) {
     this.map = map
     this.pathfinder = new Maps.Pathfinder(map)
+  }
+
+  private static newMemory(): Crasm.Memory {
+    return {
+      $dest: null,
+    }
+  }
+
+  private add(player: number, position: Vec2, angle: number): void {
+    this.player.push(player)
+    this.position.push(position)
+    this.speed.push(0)
+    this.angle.push(angle)
+    this.angularVelocity.push(0)
+    this.memory.push(Crits.newMemory())
   }
 
   spawn(player: number): void {
@@ -48,7 +73,7 @@ export class Crits {
             d0[0] * -sinA + d0[1] * cosA,
           ]
           const position = v2Add(base, delta)
-          if (!this.collide(position)) {
+          if (this.collide(position) === null) {
             this.add(player, position, Math.atan2(delta[0], delta[1]))
             return
           }
@@ -57,59 +82,92 @@ export class Crits {
     }
   }
 
-  private add(player: number, position: Vec2, angle: number): void {
-    this.player.push(player)
-    this.position.push(position)
-    this.angle.push(angle)
-    this.speed.push(0)
-    this.angularVelocity.push(0)
-    this.memory.push({})
-  }
-
-  collide(position: Vec2): boolean {
+  collide(
+    position: Vec2,
+    ignoreIndex: number | undefined = undefined
+  ): number | null {
     // Exhaustive search for now
     for (let i = 0; i < this.position.length; ++i) {
-      const dx = this.position[i][0] - position[0]
-      const dy = this.position[i][1] - position[1]
-      if (dx * dx + dy * dy < 4 * S.radius * S.radius) {
-        return true
+      if (i !== ignoreIndex) {
+        const dx = this.position[i][0] - position[0]
+        const dy = this.position[i][1] - position[1]
+        if (dx * dx + dy * dy < 4 * S.radius * S.radius) {
+          return i
+        }
       }
     }
-    return false
+    return null
+  }
+
+  // Returns [speed, angularVelocity]
+  private planMove(i: number, dest: Vec2 | null): [number, number] {
+    if (dest === null) {
+      return [0, 0]
+    }
+    const position = this.position[i]
+    const pathDirection = this.pathfinder.direction(position, dest)
+    if (pathDirection === Maps.NoDirection) {
+      return [0, 0]
+    }
+    // How fast can we move?
+    const tileXY = v2Floor(position)
+    const tile = this.map.tiles[tileXY[1] * this.map.width + tileXY[0]]
+    const moveSpeed = tile == Maps.Tile.Water ? S.waterSpeed : S.speed
+    // Adjust the target angle based on local collisions
+    let targetAngle = pathDirection * (Math.PI / 4)
+    const pathCollision = this.collide(
+      [
+        position[0] + S.dt * moveSpeed * Math.sin(targetAngle),
+        position[1] + S.dt * moveSpeed * Math.cos(targetAngle),
+      ],
+      i
+    )
+    if (pathCollision !== null) {
+      const oPosition = this.position[pathCollision]
+      const oAngle = Math.atan2(
+        oPosition[0] - position[0],
+        oPosition[1] - position[1]
+      )
+      const avoidAngle = Math.asin(
+        clamp(S.radius / distanceBetween(position, oPosition), -1, 1)
+      )
+      targetAngle =
+        oAngle +
+        Math.sign(angleBetweenAngle(oAngle, targetAngle)) *
+          Math.min(S.avoidTolerance * 2 * avoidAngle, Math.PI)
+    }
+    // Rotate & advance
+    const angleToTarget = angleBetweenAngle(this.angle[i], targetAngle)
+    const speed =
+      moveSpeed * +(Math.abs(angleToTarget) < S.directionMoveTolerance)
+    const angularVelocity = clamp(
+      angleToTarget / S.dt,
+      -S.rotationRate,
+      S.rotationRate
+    )
+    return [speed, angularVelocity]
   }
 
   update(): void {
     this.forEachIndex((i) => {
       Crasm.run(this.program, this.memory[i])
 
-      if (this.memory[i]["$dest"]) {
-        const position = this.position[i]
-        const pathDirection = this.pathfinder.direction(
-          position,
-          this.memory[i]["$dest"] as Vec2
-        )
-        if (pathDirection !== Maps.NoDirection) {
-          const tileXY = v2Floor(position)
-          const tile = this.map.tiles[tileXY[1] * this.map.width + tileXY[0]]
-          this.speed[i] = tile == Maps.Tile.Water ? S.waterSpeed : S.speed
-
-          const targetAngle = pathDirection * (Math.PI / 4)
-          const delta = angleBetweenAngle(this.angle[i], targetAngle)
-          if (Math.abs(delta) < S.dt * S.rotationRate) {
-            // Finish rotation and move
-            this.angularVelocity[i] = delta / S.dt
-            this.angle[i] = targetAngle
-            position[0] += Math.sin(this.angle[i]) * S.dt * this.speed[i]
-            position[1] += Math.cos(this.angle[i]) * S.dt * this.speed[i]
-          } else {
-            // Rotate before moving
-            this.angularVelocity[i] = Math.sign(delta) * S.rotationRate
-            this.angle[i] += this.angularVelocity[i] * S.dt
-          }
-        } else {
-          this.speed[i] = 0
-          this.angularVelocity[i] = 0
-        }
+      const [speed, angularVelocity] = this.planMove(
+        i,
+        this.memory[i]["$dest"] as Vec2 | null
+      )
+      this.angularVelocity[i] = angularVelocity
+      this.angle[i] += angularVelocity * S.dt
+      const position = this.position[i]
+      const newPosition: Vec2 = [
+        position[0] + S.dt * speed * Math.sin(this.angle[i]),
+        position[1] + S.dt * speed * Math.cos(this.angle[i]),
+      ]
+      if (this.collide(newPosition, i) === null) {
+        this.position[i] = newPosition
+        this.speed[i] = speed
+      } else {
+        this.speed[i] = 0
       }
     })
   }

@@ -1,7 +1,8 @@
 import {
-  distanceBetween,
   angleBetween,
   angleBetweenAngle,
+  clamp,
+  distanceBetween,
   v2Add,
   v2Equal,
 } from "../src/common"
@@ -31,6 +32,14 @@ describe("angleBetweenAngle", () => {
     expect(angleBetweenAngle(Math.PI, -Math.PI)).toBeCloseTo(0)
     expect(angleBetweenAngle(Math.PI - 0.1, -Math.PI + 0.2)).toBeCloseTo(0.3)
     expect(angleBetweenAngle(-Math.PI + 0.2, Math.PI - 0.1)).toBeCloseTo(-0.3)
+  })
+})
+
+describe("clamp", () => {
+  it("should clamp a value within the given range", () => {
+    expect(clamp(5, -1, 10)).toBe(5)
+    expect(clamp(-2, -1, 10)).toBe(-1)
+    expect(clamp(20, -1, 10)).toBe(10)
   })
 })
 
