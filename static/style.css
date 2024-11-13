@@ -10,6 +10,13 @@ body {
   color: #fff;
   z-index: 1000;
 }
+#outcome {
+  color: #fff;
+  z-index: 1000;
+  position: fixed;
+  top: 2em;
+  left: 0.5em;
+}
 #root {
   display: grid;
   grid-template-columns: 2fr 1fr;

@@ -5,6 +5,7 @@ import * as Maps from "./maps"
 export const S = {
   bulletLength: 0.3, // m
   bulletThickness: 0.1, // m
+  playerColors: [0xff4040ff, 0xffff0000],
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -123,28 +124,30 @@ export class CritsView {
   }
 
   update(dt: number): void {
-    this.geometry.instanceCount = 2 * this.crits.length
     const offset = this.geometry.getAttribute("offset")
     const angle = this.geometry.getAttribute("angle")
     const frame = this.geometry.getAttribute("frame")
     const player = this.geometry.getAttribute("player")
+    let index = 0
     this.crits.forEachIndex((i) => {
-      offset.array.set(this.crits.position[i], 4 * i)
-      offset.array.set(this.crits.position[i], 4 * i + 2)
-      angle.array[2 * i] = -this.crits.angle[i]
-      angle.array[2 * i + 1] = -this.crits.angle[i]
+      offset.array.set(this.crits.position[i], 2 * index)
+      offset.array.set(this.crits.position[i], 2 * index + 2)
+      angle.array[index] = -this.crits.angle[i]
+      angle.array[index + 1] = -this.crits.angle[i]
       if (this.crits.speed[i] || this.crits.angularVelocity[i]) {
         const animationRate = 3
-        frame.array[2 * i] =
-          (frame.array[2 * i] + dt * animationRate * this.nFrames) %
+        frame.array[index] =
+          (frame.array[index] + dt * animationRate * this.nFrames) %
           this.nFrames
-        frame.array[2 * i + 1] =
-          (frame.array[2 * i + 1] + dt * animationRate * this.nFrames) %
+        frame.array[index + 1] =
+          (frame.array[index + 1] + dt * animationRate * this.nFrames) %
           this.nFrames
       }
-      player.array[2 * i] = this.crits.player[i]
-      player.array[2 * i + 1] = this.crits.player[i]
+      player.array[index] = this.crits.player[i]
+      player.array[index + 1] = this.crits.player[i]
+      index += 2
     })
+    this.geometry.instanceCount = index
     offset.needsUpdate = true
     angle.needsUpdate = true
     frame.needsUpdate = true
@@ -228,13 +231,14 @@ export class BulletsView {
   }
 
   update(dt: number): void {
-    this.geometry.instanceCount = this.bullets.length
     const offset = this.geometry.getAttribute("offset")
     const angle = this.geometry.getAttribute("angle")
+    this.geometry.instanceCount = 0
     this.bullets.forEachIndex((i) => {
       const velocity = this.bullets.velocity[i]
       offset.array.set(this.bullets.position[i], 2 * i)
       angle.array[i] = -Math.atan2(velocity[0], velocity[1])
+      this.geometry.instanceCount++
     })
     offset.needsUpdate = true
     angle.needsUpdate = true
@@ -245,7 +249,7 @@ export class BulletsView {
 // Map
 
 export class MapView {
-  constructor(map: Maps.Map, scene: THREE.Scene) {
+  constructor(map: Maps.Map, scene: THREE.Scene, baseTexture: THREE.Texture) {
     for (let i = 0; i < map.tiles.length; i++) {
       const x = i % map.width
       const y = Math.floor(i / map.width)
@@ -256,14 +260,29 @@ export class MapView {
             case Maps.Tile.Water:
               return 0xff4040ff
             case Maps.Tile.Land:
-              return 0xffa0a0a0
             case Maps.Tile.Base:
-              return 0xff404040
+              return 0xffa0a0a0
           }
         })(),
       })
       const mesh = new THREE.Mesh(geometry, material)
       mesh.position.set(x + 0.5, y + 0.5, 0)
+      scene.add(mesh)
+    }
+
+    for (let i = 0; i < map.basePosition.length; i++) {
+      const geometry = new THREE.PlaneGeometry(1, 1)
+      const material = new THREE.MeshBasicMaterial({
+        map: baseTexture,
+        transparent: true,
+        color: S.playerColors[i],
+      })
+      const mesh = new THREE.Mesh(geometry, material)
+      mesh.position.set(
+        map.basePosition[i][0] + 0.5,
+        map.basePosition[i][1] + 0.5,
+        1
+      )
       scene.add(mesh)
     }
   }

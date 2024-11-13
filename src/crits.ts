@@ -5,6 +5,7 @@ import {
   v2Add,
   clamp,
   distance,
+  v2Equal,
 } from "./common"
 import * as Crasm from "./crasm"
 import * as Maps from "./maps"
@@ -25,6 +26,10 @@ export const S = {
   attackRange: 2, // m
   directionAttackTolerance: Math.PI / 16, // rad
   bulletSpeed: 8, // m/s
+  explosionRadius: 0.6, // m
+  health: 100, // hp
+  damage: 10, // hp
+  baseHealth: 1000, // hp
 }
 
 class Memory {
@@ -33,66 +38,66 @@ class Memory {
 }
 
 export class Bullets {
-  position: Vec2[] = []
-  velocity: Vec2[] = []
-  target: Vec2[] = []
-
-  get length(): number {
-    return this.position.length
-  }
+  alive: boolean[] = Array(S.maxBullets).fill(false)
+  position: Vec2[] = Array.from({ length: S.maxBullets }, () => [0, 0])
+  velocity: Vec2[] = Array.from({ length: S.maxBullets }, () => [0, 0])
+  target: Vec2[] = Array.from({ length: S.maxBullets }, () => [0, 0])
 
   forEachIndex(fn: (index: number) => void): void {
-    for (let i = 0; i < this.position.length; ++i) {
-      fn(i)
+    for (let i = 0; i < S.maxBullets; ++i) {
+      if (this.alive[i]) {
+        fn(i)
+      }
     }
   }
 
   spawn(position: Vec2, target: Vec2): void {
-    if (this.position.length >= S.maxBullets) {
-      return
+    const i = this.alive.indexOf(false)
+    if (i !== -1) {
+      const dx = target[0] - position[0]
+      const dy = target[1] - position[1]
+      const length = Math.sqrt(dx * dx + dy * dy)
+      this.alive[i] = true
+      this.position[i][0] = position[0]
+      this.position[i][1] = position[1]
+      this.velocity[i][0] = S.bulletSpeed * (dx / length)
+      this.velocity[i][1] = S.bulletSpeed * (dy / length)
+      this.target[i][0] = target[0]
+      this.target[i][1] = target[1]
     }
-    const dx = target[0] - position[0]
-    const dy = target[1] - position[1]
-    const length = Math.sqrt(dx * dx + dy * dy)
-    this.position.push([...position])
-    this.velocity.push([
-      S.bulletSpeed * (dx / length),
-      S.bulletSpeed * (dy / length),
-    ])
-    this.target.push([...target])
   }
 
-  update(): void {
-    for (let i = 0; i < this.position.length; ) {
+  update(onExplosion: (a: Vec2) => void): void {
+    this.forEachIndex((i) => {
       if (distance(this.position[i], this.target[i]) < S.bulletSpeed * S.dt) {
-        // TODO - explode & cause damage
-        this.position.splice(i, 1)
-        this.velocity.splice(i, 1)
-        this.target.splice(i, 1)
+        onExplosion(this.target[i])
+        this.alive[i] = false
       } else {
         this.position[i][0] += this.velocity[i][0] * S.dt
         this.position[i][1] += this.velocity[i][1] * S.dt
-        ++i
       }
-    }
+    })
   }
 }
 
 export class Crits {
   // Per-critter
-  player: number[] = []
-  position: Vec2[] = []
-  speed: number[] = []
-  angle: number[] = []
-  angularVelocity: number[] = []
-  attackRecharge: number[] = []
-  memory: Memory[] = []
+  player: number[] = Array(S.maxCritters).fill(-1)
+  position: Vec2[] = Array.from({ length: S.maxCritters }, () => [0, 0])
+  speed: number[] = Array(S.maxCritters).fill(0)
+  angle: number[] = Array(S.maxCritters).fill(0)
+  angularVelocity: number[] = Array(S.maxCritters).fill(0)
+  attackRecharge: number[] = Array(S.maxCritters).fill(0)
+  health: number[] = Array(S.maxCritters).fill(0)
+  memory: Memory[] = Array.from({ length: S.maxCritters }, () => new Memory())
 
   // Common
   programs: Crasm.Program[]
+  baseHealth: number[]
   map: Maps.Map
   pathfinder: Maps.Pathfinder
   bullets: Bullets = new Bullets()
+  playerWin: boolean | null = null
 
   constructor(map: Maps.Map) {
     this.map = map
@@ -100,29 +105,30 @@ export class Crits {
     this.programs = Array(this.map.basePosition.length).fill(
       Crasm.emptyProgram()
     )
-  }
-
-  get length(): number {
-    return this.position.length
+    this.baseHealth = Array(this.map.basePosition.length).fill(S.baseHealth)
   }
 
   forEachIndex(fn: (index: number) => void): void {
-    for (let i = 0; i < this.position.length; ++i) {
-      fn(i)
+    for (let i = 0; i < S.maxCritters; ++i) {
+      if (this.player[i] !== -1) {
+        fn(i)
+      }
     }
   }
 
   private add(player: number, position: Vec2, angle: number): void {
-    if (this.length >= S.maxCritters) {
-      return
+    const i = this.player.indexOf(-1)
+    if (i !== -1) {
+      this.player[i] = player
+      this.position[i][0] = position[0]
+      this.position[i][1] = position[1]
+      this.speed[i] = 0
+      this.angle[i] = angle
+      this.angularVelocity[i] = 0
+      this.attackRecharge[i] = 0
+      this.health[i] = S.health
+      this.memory[i] = new Memory()
     }
-    this.player.push(player)
-    this.position.push(position)
-    this.speed.push(0)
-    this.angle.push(angle)
-    this.angularVelocity.push(0)
-    this.attackRecharge.push(0)
-    this.memory.push(new Memory())
   }
 
   spawn(player: number): void {
@@ -158,7 +164,7 @@ export class Crits {
   ): number | null {
     // Exhaustive search for now
     for (let i = 0; i < this.position.length; ++i) {
-      if (i !== ignoreIndex) {
+      if (this.player[i] !== -1 && i !== ignoreIndex) {
         const dx = this.position[i][0] - position[0]
         const dy = this.position[i][1] - position[1]
         if (dx * dx + dy * dy < 4 * S.radius * S.radius) {
@@ -263,8 +269,28 @@ export class Crits {
     }
   }
 
+  private explode(p: Vec2) {
+    const cell = v2Floor(p)
+    for (let i = 0; i < this.map.basePosition.length; i++) {
+      if (v2Equal(cell, this.map.basePosition[i])) {
+        this.baseHealth[i] -= S.damage
+        if (this.playerWin === null && this.baseHealth[i] <= 0) {
+          this.playerWin = i ? true : false
+        }
+      }
+    }
+    this.forEachIndex((i) => {
+      if (distance(this.position[i], p) < S.explosionRadius) {
+        this.health[i] -= S.damage
+        if (this.health[i] <= 0) {
+          this.player[i] = -1
+        }
+      }
+    })
+  }
+
   update(): void {
-    this.bullets.update()
+    this.bullets.update((p: Vec2) => this.explode(p))
 
     this.forEachIndex((i) => {
       this.attackRecharge[i] = Math.max(this.attackRecharge[i] - S.dt, 0)

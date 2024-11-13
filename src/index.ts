@@ -99,12 +99,17 @@ async function load(page: { sim: HTMLElement; editor: HTMLTextAreaElement }) {
     scene,
     await loadTexture("textures/crit_a4.png")
   )
-  const mapView = new Views.MapView(map, scene)
+  const mapView = new Views.MapView(
+    map,
+    scene,
+    await loadTexture("textures/base.png")
+  )
 
   // Render and physics loop
   let updateTime: number | undefined = undefined
   let animationTime: number | undefined = undefined
   const fpsCounter = createFpsCounter()
+  const outcomeText = document.getElementById("outcome")!
   renderer.setAnimationLoop((time: number) => {
     time /= 1000
     if (updateTime === undefined) {
@@ -121,6 +126,9 @@ async function load(page: { sim: HTMLElement; editor: HTMLTextAreaElement }) {
     mapView.update(dt)
     renderer.render(scene, camera)
     fpsCounter.update()
+    if (crits.playerWin !== null) {
+      outcomeText.textContent = crits.playerWin ? "You win!" : "You lose!"
+    }
     animationTime = time
   })
 }
