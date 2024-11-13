@@ -62,7 +62,14 @@ export function parseLiteral(token: string): Value {
       .filter((s) => s !== "")
       .map(Number)
   }
-  return Number(token)
+  if (token === "null") {
+    return null
+  }
+  const number = Number(token)
+  if (isNaN(number)) {
+    throw new Error(`Unexpected literal: ${token}`)
+  }
+  return number
 }
 
 export function parse(source: string): Program {

@@ -2,16 +2,16 @@ import {
   angleBetween,
   angleBetweenAngle,
   clamp,
-  distanceBetween,
+  distance,
   v2Add,
   v2Equal,
 } from "../src/common"
 
 const PI = Math.PI
 
-describe("distanceBetween", () => {
+describe("distance", () => {
   it("should calculate the distance between two points", () => {
-    expect(distanceBetween([1, -1], [4, -5])).toBeCloseTo(5)
+    expect(distance([1, -1], [4, -5])).toBeCloseTo(5)
   })
 })
 

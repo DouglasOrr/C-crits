@@ -19,7 +19,7 @@ export function v2SampleDisc(radius: number): Vec2 {
   return [(x / r) * radius, (y / r) * radius]
 }
 
-export function distanceBetween(a: Vec2, b: Vec2): number {
+export function distance(a: Vec2, b: Vec2): number {
   return Math.hypot(a[0] - b[0], a[1] - b[1])
 }
 

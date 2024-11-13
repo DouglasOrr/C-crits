@@ -2,6 +2,14 @@ import * as THREE from "three"
 import * as Crits from "./crits"
 import * as Maps from "./maps"
 
+export const S = {
+  bulletLength: 0.3, // m
+  bulletThickness: 0.1, // m
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// Crits
+
 const critsVertexShader = `
 precision highp float;
 
@@ -27,7 +35,7 @@ void main() {
         side * position.x * cos(angle) - position.y * sin(angle),
         side * position.x * sin(angle) + position.y * cos(angle)
     ) + offset;
-    gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 0, 1);
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1, 1);
 }
 `
 const critsFragmentShader = `
@@ -143,6 +151,98 @@ export class CritsView {
     player.needsUpdate = true
   }
 }
+
+///////////////////////////////////////////////////////////////////////////////
+// Bullets
+
+const bulletsVertexShader = `
+precision highp float;
+
+uniform mat4 projectionMatrix;
+uniform mat4 modelViewMatrix;
+attribute vec2 position;
+attribute vec2 offset;
+attribute float angle;
+
+void main() {
+    vec2 p = vec2(
+        position.x * cos(angle) - position.y * sin(angle),
+        position.x * sin(angle) + position.y * cos(angle)
+    ) + offset;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 0.5, 1);
+}
+`
+const bulletsFragmentShader = `
+precision highp float;
+
+void main() {
+    gl_FragColor = vec4(1, 0, 0, 1);
+}
+`
+
+export class BulletsView {
+  private geometry: THREE.InstancedBufferGeometry
+
+  constructor(private bullets: Crits.Bullets, scene: THREE.Scene) {
+    const material = new THREE.RawShaderMaterial({
+      vertexShader: bulletsVertexShader,
+      fragmentShader: bulletsFragmentShader,
+      transparent: true,
+      side: THREE.DoubleSide,
+    })
+    this.geometry = new THREE.InstancedBufferGeometry()
+    this.geometry.instanceCount = 0
+
+    // Buffer data
+    this.geometry.setIndex([0, 2, 1, 2, 3, 1])
+    const DY = S.bulletLength / 2
+    const DX = S.bulletThickness / 2
+    this.geometry.setAttribute(
+      "position",
+      new THREE.BufferAttribute(
+        new Float32Array([-DX, DY, /**/ DX, DY, /**/ -DX, -DY, /**/ DX, -DY]),
+        2
+      )
+    )
+    // Set bounding sphere to avoid an error with 2D position
+    this.geometry.boundingSphere = new THREE.Sphere(
+      new THREE.Vector3(),
+      Math.max(DX, DY)
+    )
+
+    // Instance data
+    const instances = Crits.S.maxBullets
+    Object.entries({
+      offset: new Float32Array(instances * 2),
+      angle: new Float32Array(instances * 1),
+    }).forEach(([name, a]) => {
+      const attribute = new THREE.InstancedBufferAttribute(
+        a,
+        a.length / instances
+      )
+      attribute.setUsage(THREE.DynamicDrawUsage)
+      this.geometry.setAttribute(name, attribute)
+    })
+
+    scene.add(new THREE.Mesh(this.geometry, material))
+  }
+
+  update(dt: number): void {
+    this.geometry.instanceCount = this.bullets.length
+    const offset = this.geometry.getAttribute("offset")
+    const angle = this.geometry.getAttribute("angle")
+    this.bullets.forEachIndex((i) => {
+      const velocity = this.bullets.velocity[i]
+      offset.array.set(this.bullets.position[i], 2 * i)
+      angle.array[i] = -Math.atan2(velocity[0], velocity[1])
+    })
+    offset.needsUpdate = true
+    angle.needsUpdate = true
+  }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// Map
 
 export class MapView {
   constructor(map: Maps.Map, scene: THREE.Scene) {

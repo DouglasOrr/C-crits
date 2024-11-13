@@ -74,7 +74,7 @@ async function load(page: { sim: HTMLElement; editor: HTMLTextAreaElement }) {
   page.editor.value = window.localStorage.getItem("program") ?? ""
   page.editor.addEventListener("keydown", (event) => {
     if (event.ctrlKey && event.key === "Enter") {
-      crits.program = Crasm.parse(page.editor.value!)
+      crits.programs[0] = Crasm.parse(page.editor.value!)
       window.localStorage.setItem("program", page.editor.value!)
     }
   })
@@ -85,7 +85,7 @@ async function load(page: { sim: HTMLElement; editor: HTMLTextAreaElement }) {
   page.sim.appendChild(renderer.domElement)
 
   const camera = new THREE.OrthographicCamera()
-  camera.position.z = 1
+  camera.position.z = 100
   updateCamera(camera, page.sim, map)
   window.addEventListener("resize", () => {
     renderer.setSize(page.sim.offsetWidth, page.sim.offsetHeight)
@@ -93,6 +93,7 @@ async function load(page: { sim: HTMLElement; editor: HTMLTextAreaElement }) {
   })
 
   const scene = new THREE.Scene()
+  const bulletsView = new Views.BulletsView(crits.bullets, scene)
   const critsView = new Views.CritsView(
     crits,
     scene,
@@ -115,6 +116,7 @@ async function load(page: { sim: HTMLElement; editor: HTMLTextAreaElement }) {
       }
     }
     const dt = time - (animationTime ?? time)
+    bulletsView.update(dt)
     critsView.update(dt)
     mapView.update(dt)
     renderer.render(scene, camera)
