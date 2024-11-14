@@ -178,16 +178,31 @@ void main() {
 const bulletsFragmentShader = `
 precision highp float;
 
+uniform vec3 color;
+
 void main() {
-    gl_FragColor = vec4(1, 0, 0, 1);
+    float fx = gl_FragCoord.x;
+    float fy = gl_FragCoord.y;
+    // Probably a pretty rubbish hash!
+    float a = float(mod(
+      (47.0 *fx + 29.0 *fx*fx + 97.0 *fy + 53.0 * fy*fy + 67.0 *fx*fy) / 11.0,
+      2.0) < 1.0);
+    gl_FragColor = vec4(color, a);
 }
 `
 
 export class BulletsView {
   private geometry: THREE.InstancedBufferGeometry
 
-  constructor(private bullets: Crits.Bullets, scene: THREE.Scene) {
+  constructor(
+    private bullets: Crits.Bullets,
+    scene: THREE.Scene,
+    isHeal: boolean
+  ) {
     const material = new THREE.RawShaderMaterial({
+      uniforms: {
+        color: { value: new THREE.Color(isHeal ? 0xffffffff : 0xffff0000) },
+      },
       vertexShader: bulletsVertexShader,
       fragmentShader: bulletsFragmentShader,
       transparent: true,
@@ -233,13 +248,14 @@ export class BulletsView {
   update(dt: number): void {
     const offset = this.geometry.getAttribute("offset")
     const angle = this.geometry.getAttribute("angle")
-    this.geometry.instanceCount = 0
+    let index = 0
     this.bullets.forEachIndex((i) => {
+      offset.array.set(this.bullets.position[i], 2 * index)
       const velocity = this.bullets.velocity[i]
-      offset.array.set(this.bullets.position[i], 2 * i)
-      angle.array[i] = -Math.atan2(velocity[0], velocity[1])
-      this.geometry.instanceCount++
+      angle.array[index] = -Math.atan2(velocity[0], velocity[1])
+      index++
     })
+    this.geometry.instanceCount = index
     offset.needsUpdate = true
     angle.needsUpdate = true
   }

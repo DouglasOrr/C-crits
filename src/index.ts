@@ -50,6 +50,7 @@ async function loadImage(src: string): Promise<Image32> {
 async function loadTexture(src: string): Promise<THREE.Texture> {
   return new Promise((resolve) => {
     new THREE.TextureLoader().load(src, (texture) => {
+      texture.minFilter = THREE.NearestFilter
       resolve(texture)
     })
   })
@@ -108,7 +109,16 @@ async function load(page: Page) {
   })
 
   const scene = new THREE.Scene()
-  const bulletsView = new Views.BulletsView(crits.bullets, scene)
+  const bulletsView = new Views.BulletsView(
+    crits.bullets,
+    scene,
+    /*isHeal*/ false
+  )
+  const healBulletsView = new Views.BulletsView(
+    crits.healBullets,
+    scene,
+    /*isHeal*/ true
+  )
   const critsView = new Views.CritsView(
     crits,
     scene,
@@ -136,6 +146,7 @@ async function load(page: Page) {
     }
     const dt = time - (animationTime ?? time)
     bulletsView.update(dt)
+    healBulletsView.update(dt)
     critsView.update(dt)
     mapView.update(dt)
     renderer.render(scene, camera)
