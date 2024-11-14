@@ -5,11 +5,24 @@ import * as Crits from "./crits"
 import * as Maps from "./maps"
 import * as Views from "./views"
 
-function createFpsCounter(): { update: () => void } {
-  const fpsCounter = document.getElementById("fps-counter")
+class Page {
+  sim: HTMLElement
+  editor: HTMLTextAreaElement
+  fpsCounter: HTMLElement
+  outcome: HTMLElement
+
+  constructor() {
+    this.sim = document.getElementById("col-sim")!
+    this.editor = document.getElementById("editor")! as HTMLTextAreaElement
+    this.fpsCounter = document.getElementById("fps-counter")!
+    this.outcome = document.getElementById("outcome")!
+  }
+}
+
+function createFpsCounter(page: Page): { update: () => void } {
   let frameCount = 0
   setInterval(() => {
-    fpsCounter!.textContent = `${frameCount} fps`
+    page.fpsCounter.textContent = `${frameCount} fps`
     frameCount = 0
   }, 1000)
   return {
@@ -42,6 +55,13 @@ async function loadTexture(src: string): Promise<THREE.Texture> {
   })
 }
 
+async function loadLevel(name: string): Promise<Maps.Level> {
+  const response = await fetch(`levels/${name}.json`)
+  const data = await response.json()
+  data["map"] = Maps.fromImage(await loadImage(`maps/${data["map"]}.png`))
+  return data as Maps.Level
+}
+
 function updateCamera(
   camera: THREE.OrthographicCamera,
   sim: HTMLElement,
@@ -60,15 +80,10 @@ function updateCamera(
   camera.updateProjectionMatrix()
 }
 
-async function load(page: { sim: HTMLElement; editor: HTMLTextAreaElement }) {
+async function load(page: Page) {
   // World
-  const map = Maps.fromImage(await loadImage("maps/map_0.png"))
-  const crits = new Crits.Crits(map)
-  for (let player = 0; player < map.basePosition.length; player++) {
-    for (let n = 0; n < 31; ++n) {
-      crits.spawn(player)
-    }
-  }
+  const level = await loadLevel("level_0")
+  const crits = new Crits.Crits(level)
 
   // Input
   page.editor.value = window.localStorage.getItem("program") ?? ""
@@ -86,10 +101,10 @@ async function load(page: { sim: HTMLElement; editor: HTMLTextAreaElement }) {
 
   const camera = new THREE.OrthographicCamera()
   camera.position.z = 100
-  updateCamera(camera, page.sim, map)
+  updateCamera(camera, page.sim, level.map)
   window.addEventListener("resize", () => {
     renderer.setSize(page.sim.offsetWidth, page.sim.offsetHeight)
-    updateCamera(camera, page.sim, map)
+    updateCamera(camera, page.sim, level.map)
   })
 
   const scene = new THREE.Scene()
@@ -100,7 +115,7 @@ async function load(page: { sim: HTMLElement; editor: HTMLTextAreaElement }) {
     await loadTexture("textures/crit_a4.png")
   )
   const mapView = new Views.MapView(
-    map,
+    level.map,
     scene,
     await loadTexture("textures/base.png")
   )
@@ -108,8 +123,7 @@ async function load(page: { sim: HTMLElement; editor: HTMLTextAreaElement }) {
   // Render and physics loop
   let updateTime: number | undefined = undefined
   let animationTime: number | undefined = undefined
-  const fpsCounter = createFpsCounter()
-  const outcomeText = document.getElementById("outcome")!
+  const fpsCounter = createFpsCounter(page)
   renderer.setAnimationLoop((time: number) => {
     time /= 1000
     if (updateTime === undefined) {
@@ -127,15 +141,12 @@ async function load(page: { sim: HTMLElement; editor: HTMLTextAreaElement }) {
     renderer.render(scene, camera)
     fpsCounter.update()
     if (crits.playerWin !== null) {
-      outcomeText.textContent = crits.playerWin ? "You win!" : "You lose!"
+      page.outcome.textContent = crits.playerWin ? "You win!" : "You lose!"
     }
     animationTime = time
   })
 }
 
 window.onload = () => {
-  load({
-    sim: document.getElementById("col-sim")!,
-    editor: document.getElementById("editor")! as HTMLTextAreaElement,
-  })
+  load(new Page())
 }

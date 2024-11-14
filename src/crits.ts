@@ -15,6 +15,7 @@ export const S = {
   radius: 0.25, // m
   maxCritters: 1000, // #
   maxBullets: 1000, // #
+  spawnTime: 1, // s
   // Movement
   speed: 4, // m/s
   waterSpeed: 0.4, // m/s
@@ -91,21 +92,30 @@ export class Crits {
   health: number[] = Array(S.maxCritters).fill(0)
   memory: Memory[] = Array.from({ length: S.maxCritters }, () => new Memory())
 
-  // Common
+  // Per-player
   programs: Crasm.Program[]
   baseHealth: number[]
-  map: Maps.Map
+  spawnRecharge: number[]
+
+  // Common
+  level: Maps.Level
   pathfinder: Maps.Pathfinder
   bullets: Bullets = new Bullets()
   playerWin: boolean | null = null
 
-  constructor(map: Maps.Map) {
-    this.map = map
-    this.pathfinder = new Maps.Pathfinder(map)
-    this.programs = Array(this.map.basePosition.length).fill(
-      Crasm.emptyProgram()
-    )
-    this.baseHealth = Array(this.map.basePosition.length).fill(S.baseHealth)
+  constructor(level: Maps.Level) {
+    this.level = level
+    this.pathfinder = new Maps.Pathfinder(level.map)
+
+    const nPlayers = level.initialCritters.length
+    this.programs = Array(nPlayers).fill(Crasm.emptyProgram())
+    this.baseHealth = Array(nPlayers).fill(S.baseHealth)
+    this.spawnRecharge = Array(nPlayers).fill(0)
+    for (const [player, count] of level.initialCritters.entries()) {
+      for (let i = 0; i < count; ++i) {
+        this.spawn(player)
+      }
+    }
   }
 
   forEachIndex(fn: (index: number) => void): void {
@@ -132,8 +142,8 @@ export class Crits {
   }
 
   spawn(player: number): void {
-    const base = v2Add(this.map.basePosition[player], [0.5, 0.5])
-    const baseDirection = (this.map.baseDirection[player] * Math.PI) / 4
+    const base = v2Add(this.level.map.basePosition[player], [0.5, 0.5])
+    const baseDirection = (this.level.map.baseDirection[player] * Math.PI) / 4
     const cosA = Math.cos(baseDirection)
     const sinA = Math.sin(baseDirection)
 
@@ -187,7 +197,8 @@ export class Crits {
     }
     // How fast can we move?
     const tileXY = v2Floor(position)
-    const tile = this.map.tiles[tileXY[1] * this.map.width + tileXY[0]]
+    const tile =
+      this.level.map.tiles[tileXY[1] * this.level.map.width + tileXY[0]]
     const moveSpeed = tile == Maps.Tile.Water ? S.waterSpeed : S.speed
     // Adjust the target angle based on local collisions
     let targetAngle = pathDirection * (Math.PI / 4)
@@ -271,8 +282,8 @@ export class Crits {
 
   private explode(p: Vec2) {
     const cell = v2Floor(p)
-    for (let i = 0; i < this.map.basePosition.length; i++) {
-      if (v2Equal(cell, this.map.basePosition[i])) {
+    for (let i = 0; i < this.level.map.basePosition.length; i++) {
+      if (v2Equal(cell, this.level.map.basePosition[i])) {
         this.baseHealth[i] -= S.damage
         if (this.playerWin === null && this.baseHealth[i] <= 0) {
           this.playerWin = i ? true : false
@@ -289,7 +300,22 @@ export class Crits {
     })
   }
 
+  respawn(): void {
+    for (let player = 0; player < this.spawnRecharge.length; player++) {
+      this.spawnRecharge[player] -= S.dt
+      if (this.spawnRecharge[player] <= 0) {
+        const count = this.player.reduce((n, p) => n + +(p === player), 0)
+        if (count < this.level.maxCritters[player]) {
+          this.spawn(player)
+          this.spawnRecharge[player] = S.spawnTime
+        }
+      }
+    }
+  }
+
   update(): void {
+    this.respawn()
+
     this.bullets.update((p: Vec2) => this.explode(p))
 
     this.forEachIndex((i) => {

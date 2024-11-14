@@ -1,0 +1,5 @@
+{
+  "map": "map_0",
+  "initialCritters": [10, 10],
+  "maxCritters": [30, 30]
+}
