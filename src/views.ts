@@ -2,10 +2,28 @@ import * as THREE from "three"
 import * as Crits from "./crits"
 import * as Maps from "./maps"
 
-export const S = {
+const Palette = {
+  light: new THREE.Color(0xffffffff),
+  dark: new THREE.Color(0xff000000),
+  primary: new THREE.Color(0xff4040ff),
+  secondary: new THREE.Color(0xffff0000),
+}
+
+const S = {
   bulletLength: 0.3, // m
   bulletThickness: 0.1, // m
-  playerColors: [0xff4040ff, 0xffff0000],
+  captureAnimationPeriod: 0.5, // s
+}
+
+function playerColor(player: number): THREE.Color {
+  switch (player) {
+    case 0:
+      return Palette.primary
+    case 1:
+      return Palette.secondary
+    default:
+      return Palette.light
+  }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -44,14 +62,18 @@ precision highp float;
 
 uniform sampler2D tex;
 uniform int nFrames;
+uniform vec3 playerColors[3];
 varying vec2 vUv;
 varying float vFrame;
 varying float vPlayer;
 
 void main() {
-    vec4 tint = (vPlayer == 0.0) ? vec4(0.2, 0.2, 1, 1) : vec4(1, 0, 0, 1);
+    vec3 tint =
+        (vPlayer == 0.0) ? playerColors[0] :
+        (vPlayer == 1.0) ? playerColors[1] :
+        playerColors[2];
     float u = (vUv[0] + floor(vFrame)) / float(nFrames);
-    gl_FragColor = tint * texture2D(tex, vec2(u, vUv[1]));
+    gl_FragColor = vec4(tint, 1) * texture2D(tex, vec2(u, vUv[1]));
 }
 `
 
@@ -69,6 +91,9 @@ export class CritsView {
       uniforms: {
         tex: { value: texture },
         nFrames: { value: this.nFrames },
+        playerColors: {
+          value: [playerColor(0), playerColor(1), playerColor(2)],
+        },
       },
       vertexShader: critsVertexShader,
       fragmentShader: critsFragmentShader,
@@ -201,7 +226,9 @@ export class BulletsView {
   ) {
     const material = new THREE.RawShaderMaterial({
       uniforms: {
-        color: { value: new THREE.Color(isHeal ? 0xffffffff : 0xffff0000) },
+        color: {
+          value: new THREE.Color(isHeal ? Palette.primary : Palette.secondary),
+        },
       },
       vertexShader: bulletsVertexShader,
       fragmentShader: bulletsFragmentShader,
@@ -262,10 +289,55 @@ export class BulletsView {
 }
 
 ///////////////////////////////////////////////////////////////////////////////
+// Bases
+
+export class BasesView {
+  materials: THREE.MeshBasicMaterial[] = []
+  animationTheta: number[] = []
+
+  constructor(
+    private bases: Crits.Bases,
+    scene: THREE.Scene,
+    baseTexture: THREE.Texture
+  ) {
+    for (let i = 0; i < bases.length; i++) {
+      const material = new THREE.MeshBasicMaterial({
+        map: baseTexture,
+        transparent: true,
+        color: playerColor(i),
+      })
+      const mesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), material)
+      mesh.position.set(bases.position[i][0], bases.position[i][1], 1)
+      scene.add(mesh)
+      this.materials.push(material)
+      this.animationTheta.push(0)
+    }
+  }
+
+  update(dt: number): void {
+    for (let i = 0; i < this.bases.length; i++) {
+      if (this.bases.captureProgress[i] > 0) {
+        this.animationTheta[i] += dt
+        const [minPeriod, maxPeriod] = [0.25, 1.0]
+        const alpha = this.bases.captureProgress[i] / Crits.S.captureTime
+        const period = maxPeriod + Math.sqrt(alpha) * (minPeriod - maxPeriod)
+        const flash = (this.animationTheta[i] / period) % 1 < 0.5
+        this.materials[i].color = playerColor(
+          flash ? this.bases.capturePlayer[i] : this.bases.owner[i]
+        )
+      } else {
+        this.animationTheta[i] = 0
+        this.materials[i].color = playerColor(this.bases.owner[i])
+      }
+    }
+  }
+}
+
+///////////////////////////////////////////////////////////////////////////////
 // Map
 
 export class MapView {
-  constructor(map: Maps.Map, scene: THREE.Scene, baseTexture: THREE.Texture) {
+  constructor(map: Maps.Map, scene: THREE.Scene) {
     for (let i = 0; i < map.tiles.length; i++) {
       const x = i % map.width
       const y = Math.floor(i / map.width)
@@ -274,31 +346,15 @@ export class MapView {
         color: (() => {
           switch (map.tiles[i]) {
             case Maps.Tile.Water:
-              return 0xff4040ff
+              return Palette.primary
             case Maps.Tile.Land:
             case Maps.Tile.Base:
-              return 0xffa0a0a0
+              return Palette.light
           }
         })(),
       })
       const mesh = new THREE.Mesh(geometry, material)
       mesh.position.set(x + 0.5, y + 0.5, 0)
-      scene.add(mesh)
-    }
-
-    for (let i = 0; i < map.basePosition.length; i++) {
-      const geometry = new THREE.PlaneGeometry(1, 1)
-      const material = new THREE.MeshBasicMaterial({
-        map: baseTexture,
-        transparent: true,
-        color: S.playerColors[i],
-      })
-      const mesh = new THREE.Mesh(geometry, material)
-      mesh.position.set(
-        map.basePosition[i][0] + 0.5,
-        map.basePosition[i][1] + 0.5,
-        1
-      )
       scene.add(mesh)
     }
   }

@@ -90,7 +90,7 @@ async function load(page: Page) {
   page.editor.value = window.localStorage.getItem("program") ?? ""
   page.editor.addEventListener("keydown", (event) => {
     if (event.ctrlKey && event.key === "Enter") {
-      crits.programs[0] = Crasm.parse(page.editor.value!)
+      crits.players.program[0] = Crasm.parse(page.editor.value!)
       window.localStorage.setItem("program", page.editor.value!)
     }
   })
@@ -124,8 +124,9 @@ async function load(page: Page) {
     scene,
     await loadTexture("textures/crit_a4.png")
   )
-  const mapView = new Views.MapView(
-    level.map,
+  const mapView = new Views.MapView(level.map, scene)
+  const basesView = new Views.BasesView(
+    crits.bases,
     scene,
     await loadTexture("textures/base.png")
   )
@@ -149,6 +150,7 @@ async function load(page: Page) {
     healBulletsView.update(dt)
     critsView.update(dt)
     mapView.update(dt)
+    basesView.update(dt)
     renderer.render(scene, camera)
     fpsCounter.update()
     if (crits.playerWin !== null) {

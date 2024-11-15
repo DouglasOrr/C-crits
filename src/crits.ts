@@ -34,11 +34,14 @@ export const S = {
   baseHealth: 1000, // hp
 
   // Base
-  spawnTime: 1, // s
+  spawnTime: 2, // s
   healRange: 3, // m
   healRadius: 0.3, // m
   healTime: 0.25, // s
   healing: 10, // hp
+  captureRange: 2.5, // m
+  captureTime: 7, // s
+  captureMultiple: 4, // #
 }
 
 class Memory {
@@ -90,6 +93,43 @@ export class Bullets {
   }
 }
 
+export class Bases {
+  position: Vec2[]
+  owner: number[]
+  health: number[]
+  captureProgress: number[]
+  capturePlayer: number[]
+  spawnRecharge: number[]
+  healRecharge: number[]
+
+  constructor(baseCoordinates: Vec2[]) {
+    const n = baseCoordinates.length
+    this.position = baseCoordinates.map((p) => v2Add(p, [0.5, 0.5]))
+    this.owner = Array.from({ length: n }, (_, i) => i)
+    this.health = Array(n).fill(S.baseHealth)
+    this.captureProgress = Array(n).fill(0)
+    this.capturePlayer = Array.from({ length: n }, (_, i) => i)
+    this.spawnRecharge = Array(n).fill(0)
+    this.healRecharge = Array(n).fill(0)
+  }
+
+  get length(): number {
+    return this.owner.length
+  }
+}
+
+export class Players {
+  program: Crasm.Program[]
+
+  constructor(n: number) {
+    this.program = Array(n).fill(Crasm.emptyProgram())
+  }
+
+  get length(): number {
+    return this.program.length
+  }
+}
+
 export class Crits {
   // Per-critter
   player: number[] = Array(S.maxCritters).fill(-1)
@@ -101,34 +141,30 @@ export class Crits {
   health: number[] = Array(S.maxCritters).fill(0)
   memory: Memory[] = Array.from({ length: S.maxCritters }, () => new Memory())
 
-  // Per-player
-  programs: Crasm.Program[]
-  baseHealth: number[]
-  spawnRecharge: number[]
-  healRecharge: number[]
-
-  // Common
-  level: Maps.Level
-  pathfinder: Maps.Pathfinder
+  // Other entities
+  players: Players
+  bases: Bases
   bullets: Bullets = new Bullets()
   healBullets: Bullets = new Bullets()
+
+  // Common state
+  level: Maps.Level
+  pathfinder: Maps.Pathfinder
   playerWin: boolean | null = null
 
   constructor(level: Maps.Level) {
     this.level = level
     this.pathfinder = new Maps.Pathfinder(level.map)
-
-    const nPlayers = level.initialCritters.length
-    this.programs = Array(nPlayers).fill(Crasm.emptyProgram())
-    this.baseHealth = Array(nPlayers).fill(S.baseHealth)
-    this.spawnRecharge = Array(nPlayers).fill(0)
-    this.healRecharge = Array(nPlayers).fill(0)
+    this.players = new Players(level.initialCritters.length)
+    this.bases = new Bases(level.map.basePosition)
     for (const [player, count] of level.initialCritters.entries()) {
       for (let i = 0; i < count; ++i) {
-        this.spawn(player)
+        this.spawn(player, player)
       }
     }
   }
+
+  // General
 
   forEachIndex(fn: (index: number) => void): void {
     for (let i = 0; i < S.maxCritters; ++i) {
@@ -139,7 +175,7 @@ export class Crits {
   }
 
   forEachPlayer(fn: (index: number) => void): void {
-    for (let i = 0; i < this.baseHealth.length; i++) {
+    for (let i = 0; i < this.players.length; i++) {
       fn(i)
     }
   }
@@ -159,9 +195,9 @@ export class Crits {
     }
   }
 
-  private spawn(player: number): void {
-    const base = v2Add(this.level.map.basePosition[player], [0.5, 0.5])
-    const baseDirection = (this.level.map.baseDirection[player] * Math.PI) / 4
+  private spawn(base: number, player: number): void {
+    const basePosition = this.bases.position[base]
+    const baseDirection = (this.level.map.baseDirection[base] * Math.PI) / 4
     const cosA = Math.cos(baseDirection)
     const sinA = Math.sin(baseDirection)
 
@@ -176,7 +212,7 @@ export class Crits {
             d0[0] * cosA + d0[1] * sinA,
             d0[0] * -sinA + d0[1] * cosA,
           ]
-          const position = v2Add(base, delta)
+          const position = v2Add(basePosition, delta)
           if (this.collide(position) === null) {
             this.add(player, position, Math.atan2(delta[0], delta[1]))
             return
@@ -185,6 +221,8 @@ export class Crits {
       }
     }
   }
+
+  // Critters
 
   private collide(
     position: Vec2,
@@ -255,6 +293,8 @@ export class Crits {
 
   private move(i: number): void {
     const [speed, angularVelocity] = this.planMove(i, this.memory[i].$dest)
+
+    // Execute the move
     this.angularVelocity[i] = angularVelocity
     this.angle[i] += angularVelocity * S.dt
     const position = this.position[i]
@@ -300,48 +340,14 @@ export class Crits {
     }
   }
 
-  private respawn(player: number): void {
-    this.spawnRecharge[player] -= S.dt
-    if (this.spawnRecharge[player] <= 0) {
-      const count = this.player.reduce((n, p) => n + +(p === player), 0)
-      if (count < this.level.maxCritters[player]) {
-        this.spawn(player)
-        this.spawnRecharge[player] = S.spawnTime
-      }
-    }
-  }
-
-  private fireHealBullets(player: number): void {
-    this.healRecharge[player] -= S.dt
-    if (this.healRecharge[player] <= 0) {
-      const basePosition = v2Add(
-        this.level.map.basePosition[player],
-        [0.5, 0.5]
-      )
-      // Choose the closest friendly critter that isn't 100% health
-      let healTargetIndex = -1
-      let healTargetDistance = Infinity
-      this.forEachIndex((i) => {
-        if (this.player[i] === player && this.health[i] < S.health) {
-          const d = distance(basePosition, this.position[i])
-          if (d < Math.min(healTargetDistance, S.healRange)) {
-            healTargetIndex = i
-            healTargetDistance = d
-          }
-        }
-      })
-      if (healTargetIndex !== -1) {
-        this.healRecharge[player] = S.healTime
-        this.healBullets.spawn(basePosition, this.position[healTargetIndex])
-      }
-    }
-  }
+  // Particles
 
   private explode(p: Vec2) {
     this.forEachPlayer((i) => {
-      if (v2Equal(v2Floor(p), this.level.map.basePosition[i])) {
-        this.baseHealth[i] -= S.damage
-        if (this.playerWin === null && this.baseHealth[i] <= 0) {
+      // Only damage players 0 (player) and 1 (enemy)
+      if (i <= 1 && v2Equal(v2Floor(p), this.level.map.basePosition[i])) {
+        this.bases.health[i] -= S.damage
+        if (this.playerWin === null && this.bases.healRecharge[i] <= 0) {
           this.playerWin = i ? true : false
         }
       }
@@ -364,7 +370,98 @@ export class Crits {
     })
   }
 
+  // Bases
+
+  private respawn(base: number): void {
+    this.bases.spawnRecharge[base] -= S.dt
+    if (this.bases.spawnRecharge[base] <= 0) {
+      const owner = this.bases.owner[base]
+      const count = this.player.reduce((sum, p) => sum + +(p === owner), 0)
+      const allowedCount = this.bases.owner.reduce(
+        (sum, p, i) => sum + this.level.maxCritters[i] * +(p === owner),
+        0
+      )
+      if (count < allowedCount) {
+        this.spawn(base, owner)
+        this.bases.spawnRecharge[base] = S.spawnTime
+      }
+    }
+  }
+
+  private fireHealBullets(base: number): void {
+    this.bases.healRecharge[base] -= S.dt
+    if (this.bases.healRecharge[base] <= 0) {
+      const basePosition = v2Add(this.level.map.basePosition[base], [0.5, 0.5])
+      // Choose the closest friendly critter that isn't 100% health
+      const owner = this.bases.owner[base]
+      let healTargetIndex = -1
+      let healTargetDistance = Infinity
+      this.forEachIndex((i) => {
+        if (this.player[i] === owner && this.health[i] < S.health) {
+          const d = distance(basePosition, this.position[i])
+          if (d < Math.min(healTargetDistance, S.healRange)) {
+            healTargetIndex = i
+            healTargetDistance = d
+          }
+        }
+      })
+      if (healTargetIndex !== -1) {
+        this.bases.healRecharge[base] = S.healTime
+        this.healBullets.spawn(basePosition, this.position[healTargetIndex])
+      }
+    }
+  }
+
+  private capture(base: number): void {
+    const counts = Array(this.bases.length).fill(0)
+    const basePosition = this.level.map.basePosition[base]
+    this.forEachIndex((i) => {
+      if (distance(this.position[i], basePosition) < S.captureRange) {
+        counts[this.player[i]]++
+      }
+    })
+    // Work out who (if anyone) is capturing
+    const owner = this.bases.owner[base]
+    let capturingPlayer = owner
+    if (
+      counts[0] > counts[1] &&
+      counts[0] > S.captureMultiple * counts[owner]
+    ) {
+      capturingPlayer = 0
+    } else if (
+      counts[1] > counts[0] &&
+      counts[1] > S.captureMultiple * counts[owner]
+    ) {
+      capturingPlayer = 1
+    }
+
+    if (
+      capturingPlayer === owner ||
+      this.bases.capturePlayer[base] !== capturingPlayer
+    ) {
+      // Decay the capture statistic
+      this.bases.captureProgress[base] = Math.max(
+        this.bases.captureProgress[base] - S.dt,
+        0
+      )
+      if (this.bases.captureProgress[base] === 0) {
+        this.bases.capturePlayer[base] = capturingPlayer
+      }
+    } else {
+      // Increase the capture statistic
+      this.bases.captureProgress[base] += S.dt
+      if (this.bases.captureProgress[base] >= S.captureTime) {
+        this.bases.owner[base] = capturingPlayer
+        this.bases.captureProgress[base] = 0
+        this.bases.capturePlayer[base] = -1
+      }
+    }
+  }
+
+  // Top-level
+
   update(): void {
+    // Update particles
     this.bullets.update((p: Vec2) => this.explode(p))
     this.healBullets.update((p: Vec2) => this.heal(p))
 
@@ -374,7 +471,10 @@ export class Crits {
 
       // Control
       const mem = this.memory[i]
-      Crasm.run(this.programs[this.player[i]], mem as unknown as Crasm.Memory)
+      Crasm.run(
+        this.players.program[this.player[i]],
+        mem as unknown as Crasm.Memory
+      )
 
       // Execution
       if (
@@ -394,6 +494,9 @@ export class Crits {
     this.forEachPlayer((i) => {
       this.respawn(i)
       this.fireHealBullets(i)
+      if (2 <= i) {
+        this.capture(i)
+      }
     })
   }
 }
