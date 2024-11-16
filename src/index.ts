@@ -1,8 +1,8 @@
 import * as THREE from "three"
 import { Image32 } from "./common"
 import * as Crasm from "./crasm"
-import * as Sim from "./sim"
 import * as Maps from "./maps"
+import * as Sim from "./sim"
 import * as Views from "./views"
 
 class Page {

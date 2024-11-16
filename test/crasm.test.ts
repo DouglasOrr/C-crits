@@ -1,4 +1,4 @@
-import { tokenise, parseLiteral, parse, run, Memory } from "../src/crasm"
+import { Memory, parse, parseLiteral, run, tokenise } from "../src/crasm"
 
 describe("tokenise", () => {
   it("should split a line into tokens", () => {

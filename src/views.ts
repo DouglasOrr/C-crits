@@ -1,6 +1,6 @@
 import * as THREE from "three"
-import * as Sim from "./sim"
 import * as Maps from "./maps"
+import * as Sim from "./sim"
 
 const Palette = {
   light: new THREE.Color(0xffffffff),
