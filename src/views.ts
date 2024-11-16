@@ -1,5 +1,5 @@
 import * as THREE from "three"
-import * as Crits from "./crits"
+import * as Sim from "./sim"
 import * as Maps from "./maps"
 
 const Palette = {
@@ -82,7 +82,7 @@ export class CritsView {
   private nFrames: number
 
   constructor(
-    private crits: Crits.Crits,
+    private crits: Sim.Crits,
     scene: THREE.Scene,
     texture: THREE.Texture
   ) {
@@ -105,7 +105,7 @@ export class CritsView {
 
     // Buffer data
     this.geometry.setIndex([0, 2, 1, 2, 3, 1])
-    const R = Crits.S.radius
+    const R = Sim.S.radius
     this.geometry.setAttribute(
       "position",
       new THREE.BufferAttribute(
@@ -127,7 +127,7 @@ export class CritsView {
     )
 
     // Instance data
-    const instances = 2 * Crits.S.maxCritters
+    const instances = 2 * Sim.S.maxCritters
     Object.entries({
       side: new Float32Array(instances * 1).map((_, i) =>
         i % 2 === 0 ? 1 : -1
@@ -220,7 +220,7 @@ export class BulletsView {
   private geometry: THREE.InstancedBufferGeometry
 
   constructor(
-    private bullets: Crits.Bullets,
+    private bullets: Sim.Bullets,
     scene: THREE.Scene,
     isHeal: boolean
   ) {
@@ -256,7 +256,7 @@ export class BulletsView {
     )
 
     // Instance data
-    const instances = Crits.S.maxBullets
+    const instances = Sim.S.maxBullets
     Object.entries({
       offset: new Float32Array(instances * 2),
       angle: new Float32Array(instances * 1),
@@ -296,7 +296,7 @@ export class BasesView {
   animationTheta: number[] = []
 
   constructor(
-    private bases: Crits.Bases,
+    private bases: Sim.Bases,
     scene: THREE.Scene,
     baseTexture: THREE.Texture
   ) {
@@ -319,7 +319,7 @@ export class BasesView {
       if (this.bases.captureProgress[i] > 0) {
         this.animationTheta[i] += dt
         const [minPeriod, maxPeriod] = [0.25, 1.0]
-        const alpha = this.bases.captureProgress[i] / Crits.S.captureTime
+        const alpha = this.bases.captureProgress[i] / Sim.S.captureTime
         const period = maxPeriod + Math.sqrt(alpha) * (minPeriod - maxPeriod)
         const flash = (this.animationTheta[i] / period) % 1 < 0.5
         this.materials[i].color = playerColor(

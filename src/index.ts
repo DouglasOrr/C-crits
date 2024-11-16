@@ -1,7 +1,7 @@
 import * as THREE from "three"
 import { Image32 } from "./common"
 import * as Crasm from "./crasm"
-import * as Crits from "./crits"
+import * as Sim from "./sim"
 import * as Maps from "./maps"
 import * as Views from "./views"
 
@@ -84,13 +84,13 @@ function updateCamera(
 async function load(page: Page) {
   // World
   const level = await loadLevel("level_0")
-  const crits = new Crits.Crits(level)
+  const sim = new Sim.Sim(level)
 
   // Input
   page.editor.value = window.localStorage.getItem("program") ?? ""
   page.editor.addEventListener("keydown", (event) => {
     if (event.ctrlKey && event.key === "Enter") {
-      crits.players.program[0] = Crasm.parse(page.editor.value!)
+      sim.players.program[0] = Crasm.parse(page.editor.value!)
       window.localStorage.setItem("program", page.editor.value!)
     }
   })
@@ -110,23 +110,23 @@ async function load(page: Page) {
 
   const scene = new THREE.Scene()
   const bulletsView = new Views.BulletsView(
-    crits.bullets,
+    sim.bullets,
     scene,
     /*isHeal*/ false
   )
   const healBulletsView = new Views.BulletsView(
-    crits.healBullets,
+    sim.healBullets,
     scene,
     /*isHeal*/ true
   )
   const critsView = new Views.CritsView(
-    crits,
+    sim.crits,
     scene,
     await loadTexture("textures/crit_a4.png")
   )
   const mapView = new Views.MapView(level.map, scene)
   const basesView = new Views.BasesView(
-    crits.bases,
+    sim.bases,
     scene,
     await loadTexture("textures/base.png")
   )
@@ -138,11 +138,11 @@ async function load(page: Page) {
   renderer.setAnimationLoop((time: number) => {
     time /= 1000
     if (updateTime === undefined) {
-      updateTime = Crits.S.dt * Math.floor(time / Crits.S.dt)
+      updateTime = Sim.S.dt * Math.floor(time / Sim.S.dt)
     } else {
       while (updateTime < time) {
-        crits.update()
-        updateTime += Crits.S.dt
+        sim.update()
+        updateTime += Sim.S.dt
       }
     }
     const dt = time - (animationTime ?? time)
@@ -153,8 +153,8 @@ async function load(page: Page) {
     basesView.update(dt)
     renderer.render(scene, camera)
     fpsCounter.update()
-    if (crits.playerWin !== null) {
-      page.outcome.textContent = crits.playerWin ? "You win!" : "You lose!"
+    if (sim.playerWin !== null) {
+      page.outcome.textContent = sim.playerWin ? "You win!" : "You lose!"
     }
     animationTime = time
   })

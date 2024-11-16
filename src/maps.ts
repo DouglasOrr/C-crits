@@ -193,9 +193,11 @@ export function findShortestPaths(map: Map, end: Vec2): Uint8Array {
 // Lazily compute and cache shortest paths to all points
 export class Pathfinder {
   private endToPaths: Uint8Array[]
-  constructor(private map: Map) {
+
+  constructor(public map: Map) {
     this.endToPaths = new Array(map.width * map.height).fill(null)
   }
+
   direction(start: Vec2, end: Vec2): number {
     start = v2Floor(start)
     end = v2Floor(end)
