@@ -39,9 +39,15 @@ export const S = {
   healRadius: 0.3, // m
   healTime: 0.25, // s
   healing: 10, // hp
+
+  // Neutral base
   captureRange: 3, // m
   captureTime: 7, // s
   captureMultiple: 4, // #
+
+  // Animations
+  critterDeathTime: 0.5, // s
+  baseDeathTime: 2, // s
 }
 
 // Bullets can be for damage or healing!
@@ -93,6 +99,7 @@ export class Bases {
   direction: number[]
   owner: number[]
   health: number[]
+  deathTimer: number[]
   captureProgress: number[]
   capturePlayer: number[]
   spawnRecharge: number[]
@@ -104,6 +111,7 @@ export class Bases {
     this.direction = level.map.baseDirection.map((d) => (d * Math.PI) / 4)
     this.owner = Array.from({ length: n }, (_, i) => i)
     this.health = Array(n).fill(S.baseHealth)
+    this.deathTimer = Array(n).fill(0)
     this.captureProgress = Array(n).fill(0)
     this.capturePlayer = Array.from({ length: n }, (_, i) => i)
     this.spawnRecharge = Array(n).fill(0)
@@ -114,9 +122,12 @@ export class Bases {
     return this.owner.length
   }
 
-  forEachIndex(fn: (index: number) => void): void {
+  forEachIndex(
+    fn: (index: number) => void,
+    includeDead: boolean = false
+  ): void {
     for (let i = 0; i < this.owner.length; i++) {
-      if (this.health[i] > 0) {
+      if (includeDead || this.health[i] > 0) {
         fn(i)
       }
     }
@@ -132,7 +143,7 @@ export class Bases {
         !Bases.isNeutralBase(i) &&
         v2Equal(v2Floor(p), v2Floor(this.position[i]))
       ) {
-        this.health[i] -= S.damage
+        this.health[i] = Math.max(this.health[i] - S.damage, 0)
       }
     })
   }
@@ -257,8 +268,17 @@ export class Bases {
       if (this.captureProgress[base] >= S.captureTime) {
         this.owner[base] = capturingPlayer
         this.captureProgress[base] = 0
-        this.capturePlayer[base] = -1
+        this.capturePlayer[base] = capturingPlayer
       }
+    }
+  }
+
+  die(base: number): void {
+    if (this.health[base] === 0) {
+      this.deathTimer[base] = Math.min(
+        this.deathTimer[base] + S.dt,
+        S.baseDeathTime
+      )
     }
   }
 
@@ -270,6 +290,7 @@ export class Bases {
         this.capture(i, crits)
       }
     })
+    this.forEachIndex((i) => this.die(i), true)
   }
 }
 
@@ -296,6 +317,10 @@ class Memory {
   $tgt: Vec2 | null = null
 }
 
+// Indices in crits have the following states:
+//   player == -1             : empty slot
+//   player >= 0, health > 0  : alive
+//   player >= 0, health == 0 : dying (implies 0 < deathTimer < S.critterDeathTime)
 export class Crits {
   player: number[] = Array(S.maxCritters).fill(-1)
   position: Vec2[] = Array.from({ length: S.maxCritters }, () => [0, 0])
@@ -304,12 +329,16 @@ export class Crits {
   angularVelocity: number[] = Array(S.maxCritters).fill(0)
   attackRecharge: number[] = Array(S.maxCritters).fill(0)
   health: number[] = Array(S.maxCritters).fill(0)
+  deathTimer: number[] = Array(S.maxCritters).fill(0)
   memory: Memory[] = Array.from({ length: S.maxCritters }, () => new Memory())
 
   // Only selects living critters
-  forEachIndex(fn: (index: number) => void): void {
+  forEachIndex(
+    fn: (index: number) => void,
+    includeDead: boolean = false
+  ): void {
     for (let i = 0; i < S.maxCritters; ++i) {
-      if (this.player[i] !== -1) {
+      if (includeDead || this.health[i] > 0) {
         fn(i)
       }
     }
@@ -328,6 +357,7 @@ export class Crits {
       this.angularVelocity[i] = 0
       this.attackRecharge[i] = 0
       this.health[i] = S.health
+      this.deathTimer[i] = 0
       this.memory[i] = new Memory()
     }
   }
@@ -338,6 +368,7 @@ export class Crits {
   ): number | null {
     // Exhaustive search for now
     for (let i = 0; i < this.position.length; ++i) {
+      // Allow collisions with dying critters
       if (this.player[i] !== -1 && i !== ignoreIndex) {
         const dx = this.position[i][0] - position[0]
         const dy = this.position[i][1] - position[1]
@@ -352,10 +383,7 @@ export class Crits {
   explode(p: Vec2) {
     this.forEachIndex((i) => {
       if (distance(this.position[i], p) < S.explosionRadius) {
-        this.health[i] -= S.damage
-        if (this.health[i] <= 0) {
-          this.player[i] = -1
-        }
+        this.health[i] = Math.max(this.health[i] - S.damage, 0)
       }
     })
   }
@@ -477,6 +505,18 @@ export class Crits {
     }
   }
 
+  die(i: number): void {
+    if (this.health[i] === 0) {
+      this.deathTimer[i] = Math.min(
+        this.deathTimer[i] + S.dt,
+        S.critterDeathTime
+      )
+      if (this.deathTimer[i] === S.critterDeathTime) {
+        this.player[i] = -1 // now an empty slot
+      }
+    }
+  }
+
   update(
     bullets: Bullets,
     players: Players,
@@ -502,6 +542,8 @@ export class Crits {
         this.angularVelocity[i] = 0
       }
     })
+    // Death
+    this.forEachIndex((i) => this.die(i), true)
   }
 }
 
@@ -532,11 +574,14 @@ export class Sim {
 
   private updateWinner(): void {
     if (this.playerWin === null) {
-      if (this.bases.health[1] <= 0) {
-        this.playerWin = true
-      } else if (this.bases.health[0] <= 0) {
-        this.playerWin = false
-      }
+      this.bases.forEachIndex((i) => {
+        if (
+          this.bases.health[i] === 0 &&
+          this.bases.deathTimer[i] >= S.baseDeathTime
+        ) {
+          this.playerWin = this.bases.owner[i] === 1
+        }
+      }, true)
     }
   }
 

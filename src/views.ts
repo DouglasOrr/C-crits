@@ -30,6 +30,12 @@ interface View {
   update(dt: number): void
 }
 
+const hash2 = `
+float hash2(float x, float y) {
+    return mod((47.0 * x + 97.0 * y + 3.0 * x*y) / 11.0, 1.0);
+}
+`
+
 ///////////////////////////////////////////////////////////////////////////////
 // Crits
 
@@ -45,15 +51,18 @@ attribute vec2 offset;
 attribute float angle;
 attribute float frame;
 attribute float player;
+attribute float dying;
 
 varying vec2 vUv;
 varying float vFrame;
 varying float vPlayer;
+varying float vDying;
 
 void main() {
     vUv = uv;
     vFrame = frame;
     vPlayer = player;
+    vDying = dying;
     vec2 p = vec2(
         side * position.x * cos(angle) - position.y * sin(angle),
         side * position.x * sin(angle) + position.y * cos(angle)
@@ -64,12 +73,15 @@ void main() {
 const critsFragmentShader = `
 precision highp float;
 
+${hash2}
+
 uniform sampler2D tex;
 uniform int nFrames;
 uniform vec3 playerColors[3];
 varying vec2 vUv;
 varying float vFrame;
 varying float vPlayer;
+varying float vDying;
 
 void main() {
     vec3 tint =
@@ -77,7 +89,8 @@ void main() {
         (vPlayer == 1.0) ? playerColors[1] :
         playerColors[2];
     float u = (vUv[0] + floor(vFrame)) / float(nFrames);
-    gl_FragColor = vec4(tint, 1) * texture2D(tex, vec2(u, vUv[1]));
+    bool visible = (vDying == 0.0) || hash2(gl_FragCoord.x, gl_FragCoord.y) > vDying;
+    gl_FragColor = vec4(tint, float(visible)) * texture2D(tex, vec2(u, vUv[1]));
 }
 `
 
@@ -118,7 +131,10 @@ export class CritsView implements View {
       )
     )
     // Set bounding sphere to avoid an error with 2D position
-    this.geometry.boundingSphere = new THREE.Sphere(new THREE.Vector3(), R)
+    this.geometry.boundingSphere = new THREE.Sphere(
+      new THREE.Vector3(0, 0, 1),
+      R
+    )
 
     // Shrink the u-coordinate to avoid spritesheet artifacts
     const uMax = 1 - this.nFrames / texture.image.width
@@ -140,6 +156,7 @@ export class CritsView implements View {
       angle: new Float32Array(instances * 1),
       frame: new Float32Array(instances * 1),
       player: new Float32Array(instances * 1),
+      dying: new Float32Array(instances * 1),
     }).forEach(([name, a]) => {
       const attribute = new THREE.InstancedBufferAttribute(
         a,
@@ -157,6 +174,7 @@ export class CritsView implements View {
     const angle = this.geometry.getAttribute("angle")
     const frame = this.geometry.getAttribute("frame")
     const player = this.geometry.getAttribute("player")
+    const dying = this.geometry.getAttribute("dying")
     let index = 0
     this.crits.forEachIndex((i) => {
       offset.array.set(this.crits.position[i], 2 * index)
@@ -174,13 +192,16 @@ export class CritsView implements View {
       }
       player.array[index] = this.crits.player[i]
       player.array[index + 1] = this.crits.player[i]
+      dying.array[index] = this.crits.deathTimer[i] / Sim.S.critterDeathTime
+      dying.array[index + 1] = this.crits.deathTimer[i] / Sim.S.critterDeathTime
       index += 2
-    })
+    }, /*includeDead=*/ true)
     this.geometry.instanceCount = index
     offset.needsUpdate = true
     angle.needsUpdate = true
     frame.needsUpdate = true
     player.needsUpdate = true
+    dying.needsUpdate = true
   }
 }
 
@@ -212,10 +233,10 @@ uniform vec3 color;
 void main() {
     float fx = gl_FragCoord.x;
     float fy = gl_FragCoord.y;
-    // Probably a pretty rubbish hash!
+    // A pretty rubbish hash!
     float a = float(mod(
-      (47.0 *fx + 29.0 *fx*fx + 97.0 *fy + 53.0 * fy*fy + 67.0 *fx*fy) / 11.0,
-      2.0) < 1.0);
+      (47.0 *fx + 29.0 *fx*fx + 97.0 *fy + 53.0 * fy*fy + 67.0 *fx*fy) / 22.0,
+      1.0) < 0.5);
     gl_FragColor = vec4(color, a);
 }
 `
@@ -255,7 +276,7 @@ export class BulletsView implements View {
     )
     // Set bounding sphere to avoid an error with 2D position
     this.geometry.boundingSphere = new THREE.Sphere(
-      new THREE.Vector3(),
+      new THREE.Vector3(0, 0, 0.5),
       Math.max(DX, DY)
     )
 
@@ -295,9 +316,40 @@ export class BulletsView implements View {
 ///////////////////////////////////////////////////////////////////////////////
 // Bases
 
+const basesVertexShader = `
+precision highp float;
+
+uniform mat4 projectionMatrix;
+uniform mat4 modelViewMatrix;
+attribute vec3 position;
+attribute vec2 uv;
+
+varying vec2 vUv;
+
+void main() {
+    vUv = uv;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1);
+}
+`
+const basesFragmentShader = `
+precision highp float;
+
+${hash2}
+
+uniform float dying;
+uniform vec3 color;
+uniform sampler2D tex;
+varying vec2 vUv;
+
+void main() {
+    bool visible = (dying == 0.0) || hash2(gl_FragCoord.x, gl_FragCoord.y) > dying;
+    gl_FragColor = vec4(color, float(visible)) * texture2D(tex, vUv);
+}
+`
+
 export class BasesView implements View {
-  materials: THREE.MeshBasicMaterial[] = []
-  animationTheta: number[] = []
+  materials: THREE.ShaderMaterial[] = []
+  flashTau: number[] = []
 
   constructor(
     private bases: Sim.Bases,
@@ -306,45 +358,58 @@ export class BasesView implements View {
     neutralBaseTexture: THREE.Texture
   ) {
     for (let i = 0; i < bases.length; i++) {
-      const material = new THREE.MeshBasicMaterial({
-        map: Sim.Bases.isNeutralBase(i)
-          ? neutralBaseTexture
-          : playerBaseTexture,
+      const material = new THREE.RawShaderMaterial({
+        uniforms: {
+          color: { value: playerColor(i) },
+          dying: { value: 0 },
+          tex: {
+            value: Sim.Bases.isNeutralBase(i)
+              ? neutralBaseTexture
+              : playerBaseTexture,
+          },
+        },
+        vertexShader: basesVertexShader,
+        fragmentShader: basesFragmentShader,
         transparent: true,
-        color: playerColor(i),
       })
       const mesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), material)
       mesh.position.set(bases.position[i][0], bases.position[i][1], 1)
       scene.add(mesh)
       this.materials.push(material)
-      this.animationTheta.push(0)
+      this.flashTau.push(0)
     }
   }
 
   update(dt: number): void {
-    for (let i = 0; i < this.bases.length; i++) {
-      const alpha = Sim.Bases.isNeutralBase(i)
-        ? this.bases.captureProgress[i] / Sim.S.captureTime
-        : 1 - this.bases.health[i] / Sim.S.baseHealth
+    this.bases.forEachIndex((i) => {
       const baseColor = playerColor(this.bases.owner[i])
-      const flashColor = Sim.Bases.isNeutralBase(i)
-        ? playerColor(this.bases.capturePlayer[i])
-        : playerColor(1 - this.bases.owner[i])
-
-      if (alpha === 0) {
-        this.animationTheta[i] = 0
-        this.materials[i].color = baseColor
-      } else if (alpha === 1) {
-        this.animationTheta[i] = 0
-        this.materials[i].color = flashColor
+      const uColor = this.materials[i].uniforms.color
+      if (this.bases.health[i] === 0) {
+        // Exploding
+        this.materials[i].uniforms.dying.value =
+          this.bases.deathTimer[i] / Sim.S.baseDeathTime
+        uColor.value = baseColor
       } else {
-        this.animationTheta[i] += dt
-        const [minPeriod, maxPeriod] = [0.25, 1.0]
-        const period = maxPeriod + Math.sqrt(alpha) * (minPeriod - maxPeriod)
-        this.materials[i].color =
-          (this.animationTheta[i] / period) % 1 < 0.5 ? baseColor : flashColor
+        // Possibly flashing
+        const alpha = Sim.Bases.isNeutralBase(i)
+          ? this.bases.captureProgress[i] / Sim.S.captureTime
+          : 1 - this.bases.health[i] / Sim.S.baseHealth
+        const flashColor = Sim.Bases.isNeutralBase(i)
+          ? playerColor(this.bases.capturePlayer[i])
+          : playerColor(1 - this.bases.owner[i])
+
+        if (alpha === 0) {
+          this.flashTau[i] = 0
+          uColor.value = baseColor
+        } else {
+          const [minPeriod, maxPeriod] = [1 / 16, 1.0]
+          const period = maxPeriod + Math.sqrt(alpha) * (minPeriod - maxPeriod)
+          this.flashTau[i] = (this.flashTau[i] + dt) % period
+          uColor.value =
+            this.flashTau[i] < 0.5 * period ? baseColor : flashColor
+        }
       }
-    }
+    }, /*includeDead=*/ true)
   }
 }
 
