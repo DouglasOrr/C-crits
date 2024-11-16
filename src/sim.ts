@@ -31,7 +31,7 @@ export const S = {
   explosionRadius: 0.6, // m
   damage: 10, // hp
   health: 100, // hp
-  baseHealth: 1000, // hp
+  baseHealth: 2500, // hp
 
   // Base
   spawnTime: 2, // s
@@ -122,14 +122,14 @@ export class Bases {
     }
   }
 
-  isNeutralBase(index: number): boolean {
+  static isNeutralBase(index: number): boolean {
     return index >= 2
   }
 
   explode(p: Vec2) {
     this.forEachIndex((i) => {
       if (
-        !this.isNeutralBase(i) &&
+        !Bases.isNeutralBase(i) &&
         v2Equal(v2Floor(p), v2Floor(this.position[i]))
       ) {
         this.health[i] -= S.damage
@@ -266,7 +266,7 @@ export class Bases {
     this.forEachIndex((i) => {
       this.respawn(i, crits)
       this.fireHealBullets(i, crits, healBullets)
-      if (this.isNeutralBase(i)) {
+      if (Bases.isNeutralBase(i)) {
         this.capture(i, crits)
       }
     })

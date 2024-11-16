@@ -298,11 +298,14 @@ export class BasesView {
   constructor(
     private bases: Sim.Bases,
     scene: THREE.Scene,
-    baseTexture: THREE.Texture
+    playerBaseTexture: THREE.Texture,
+    neutralBaseTexture: THREE.Texture
   ) {
     for (let i = 0; i < bases.length; i++) {
       const material = new THREE.MeshBasicMaterial({
-        map: baseTexture,
+        map: Sim.Bases.isNeutralBase(i)
+          ? neutralBaseTexture
+          : playerBaseTexture,
         transparent: true,
         color: playerColor(i),
       })
@@ -316,18 +319,26 @@ export class BasesView {
 
   update(dt: number): void {
     for (let i = 0; i < this.bases.length; i++) {
-      if (this.bases.captureProgress[i] > 0) {
+      const alpha = Sim.Bases.isNeutralBase(i)
+        ? this.bases.captureProgress[i] / Sim.S.captureTime
+        : 1 - this.bases.health[i] / Sim.S.baseHealth
+      const baseColor = playerColor(this.bases.owner[i])
+      const flashColor = Sim.Bases.isNeutralBase(i)
+        ? playerColor(this.bases.capturePlayer[i])
+        : playerColor(1 - this.bases.owner[i])
+
+      if (alpha === 0) {
+        this.animationTheta[i] = 0
+        this.materials[i].color = baseColor
+      } else if (alpha === 1) {
+        this.animationTheta[i] = 0
+        this.materials[i].color = flashColor
+      } else {
         this.animationTheta[i] += dt
         const [minPeriod, maxPeriod] = [0.25, 1.0]
-        const alpha = this.bases.captureProgress[i] / Sim.S.captureTime
         const period = maxPeriod + Math.sqrt(alpha) * (minPeriod - maxPeriod)
-        const flash = (this.animationTheta[i] / period) % 1 < 0.5
-        this.materials[i].color = playerColor(
-          flash ? this.bases.capturePlayer[i] : this.bases.owner[i]
-        )
-      } else {
-        this.animationTheta[i] = 0
-        this.materials[i].color = playerColor(this.bases.owner[i])
+        this.materials[i].color =
+          (this.animationTheta[i] / period) % 1 < 0.5 ? baseColor : flashColor
       }
     }
   }

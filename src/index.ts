@@ -128,7 +128,8 @@ async function load(page: Page) {
   const basesView = new Views.BasesView(
     sim.bases,
     scene,
-    await loadTexture("textures/base.png")
+    await loadTexture("textures/base.png"),
+    await loadTexture("textures/base_n.png")
   )
 
   // Render and physics loop
