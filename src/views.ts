@@ -51,18 +51,18 @@ attribute vec2 offset;
 attribute float angle;
 attribute float frame;
 attribute float player;
-attribute float dying;
+attribute float fadeOut;
 
 varying vec2 vUv;
 varying float vFrame;
 varying float vPlayer;
-varying float vDying;
+varying float vFadeOut;
 
 void main() {
     vUv = uv;
     vFrame = frame;
     vPlayer = player;
-    vDying = dying;
+    vFadeOut = fadeOut;
     vec2 p = vec2(
         side * position.x * cos(angle) - position.y * sin(angle),
         side * position.x * sin(angle) + position.y * cos(angle)
@@ -81,7 +81,7 @@ uniform vec3 playerColors[3];
 varying vec2 vUv;
 varying float vFrame;
 varying float vPlayer;
-varying float vDying;
+varying float vFadeOut;
 
 void main() {
     vec3 tint =
@@ -89,7 +89,7 @@ void main() {
         (vPlayer == 1.0) ? playerColors[1] :
         playerColors[2];
     float u = (vUv[0] + floor(vFrame)) / float(nFrames);
-    bool visible = (vDying == 0.0) || hash2(gl_FragCoord.x, gl_FragCoord.y) > vDying;
+    bool visible = (vFadeOut == 0.0) || hash2(gl_FragCoord.x, gl_FragCoord.y) > vFadeOut;
     gl_FragColor = vec4(tint, float(visible)) * texture2D(tex, vec2(u, vUv[1]));
 }
 `
@@ -156,7 +156,7 @@ export class CritsView implements View {
       angle: new Float32Array(instances * 1),
       frame: new Float32Array(instances * 1),
       player: new Float32Array(instances * 1),
-      dying: new Float32Array(instances * 1),
+      fadeOut: new Float32Array(instances * 1),
     }).forEach(([name, a]) => {
       const attribute = new THREE.InstancedBufferAttribute(
         a,
@@ -174,13 +174,12 @@ export class CritsView implements View {
     const angle = this.geometry.getAttribute("angle")
     const frame = this.geometry.getAttribute("frame")
     const player = this.geometry.getAttribute("player")
-    const dying = this.geometry.getAttribute("dying")
+    const fadeOut = this.geometry.getAttribute("fadeOut")
     let index = 0
     this.crits.forEachIndex((i) => {
       offset.array.set(this.crits.position[i], 2 * index)
       offset.array.set(this.crits.position[i], 2 * index + 2)
-      angle.array[index] = -this.crits.angle[i]
-      angle.array[index + 1] = -this.crits.angle[i]
+      angle.array[index] = angle.array[index + 1] = -this.crits.angle[i]
       if (this.crits.speed[i] || this.crits.angularVelocity[i]) {
         const animationRate = 3
         frame.array[index] =
@@ -190,18 +189,21 @@ export class CritsView implements View {
           (frame.array[index + 1] + dt * animationRate * this.nFrames) %
           this.nFrames
       }
-      player.array[index] = this.crits.player[i]
-      player.array[index + 1] = this.crits.player[i]
-      dying.array[index] = this.crits.deathTimer[i] / Sim.S.critterDeathTime
-      dying.array[index + 1] = this.crits.deathTimer[i] / Sim.S.critterDeathTime
+      player.array[index] = player.array[index + 1] = this.crits.player[i]
+      fadeOut.array[index] = fadeOut.array[index + 1] =
+        this.crits.health[i] > 0
+          ? 0
+          : this.crits.spawnTimer[i] > 0
+          ? 1 - this.crits.spawnTimer[i] / Sim.S.critterSpawnTime
+          : this.crits.deathTimer[i] / Sim.S.critterDeathTime
       index += 2
-    }, /*includeDead=*/ true)
+    }, /*includeAnimating=*/ true)
     this.geometry.instanceCount = index
     offset.needsUpdate = true
     angle.needsUpdate = true
     frame.needsUpdate = true
     player.needsUpdate = true
-    dying.needsUpdate = true
+    fadeOut.needsUpdate = true
   }
 }
 

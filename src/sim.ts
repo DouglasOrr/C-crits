@@ -46,6 +46,7 @@ export const S = {
   captureMultiple: 4, // #
 
   // Animations
+  critterSpawnTime: 0.5, // s
   critterDeathTime: 0.5, // s
   baseDeathTime: 2, // s
 }
@@ -317,10 +318,11 @@ class Memory {
   $tgt: Vec2 | null = null
 }
 
-// Indices in crits have the following states:
-//   player == -1             : empty slot
-//   player >= 0, health > 0  : alive
-//   player >= 0, health == 0 : dying (implies 0 < deathTimer < S.critterDeathTime)
+// Crits indices "slots" have the following states:
+//   player == -1                              : empty slot
+//   player >= 0, health > 0                   : alive
+//   player >= 0, health == 0, spawnTimer > 0  : spawning
+//   player >= 0, health == 0, spawnTimer == 0 : dying
 export class Crits {
   player: number[] = Array(S.maxCritters).fill(-1)
   position: Vec2[] = Array.from({ length: S.maxCritters }, () => [0, 0])
@@ -329,16 +331,17 @@ export class Crits {
   angularVelocity: number[] = Array(S.maxCritters).fill(0)
   attackRecharge: number[] = Array(S.maxCritters).fill(0)
   health: number[] = Array(S.maxCritters).fill(0)
+  spawnTimer: number[] = Array(S.maxCritters).fill(0)
   deathTimer: number[] = Array(S.maxCritters).fill(0)
   memory: Memory[] = Array.from({ length: S.maxCritters }, () => new Memory())
 
   // Only selects living critters
   forEachIndex(
     fn: (index: number) => void,
-    includeDead: boolean = false
+    includeAnimating: boolean = false
   ): void {
     for (let i = 0; i < S.maxCritters; ++i) {
-      if (includeDead || this.health[i] > 0) {
+      if (includeAnimating || this.health[i] > 0) {
         fn(i)
       }
     }
@@ -356,7 +359,8 @@ export class Crits {
       this.angle[i] = angle
       this.angularVelocity[i] = 0
       this.attackRecharge[i] = 0
-      this.health[i] = S.health
+      this.health[i] = 0
+      this.spawnTimer[i] = S.dt
       this.deathTimer[i] = 0
       this.memory[i] = new Memory()
     }
@@ -505,14 +509,27 @@ export class Crits {
     }
   }
 
-  die(i: number): void {
+  animate(i: number): void {
     if (this.health[i] === 0) {
-      this.deathTimer[i] = Math.min(
-        this.deathTimer[i] + S.dt,
-        S.critterDeathTime
-      )
-      if (this.deathTimer[i] === S.critterDeathTime) {
-        this.player[i] = -1 // now an empty slot
+      this.speed[i] = 0
+      this.angularVelocity[i] = 0
+      if (this.spawnTimer[i] > 0) {
+        this.spawnTimer[i] = Math.min(
+          this.spawnTimer[i] + S.dt,
+          S.critterSpawnTime
+        )
+        if (this.spawnTimer[i] === S.critterSpawnTime) {
+          this.health[i] = S.health
+          this.spawnTimer[i] = 0
+        }
+      } else {
+        this.deathTimer[i] = Math.min(
+          this.deathTimer[i] + S.dt,
+          S.critterDeathTime
+        )
+        if (this.deathTimer[i] === S.critterDeathTime) {
+          this.player[i] = -1 // now an empty slot
+        }
       }
     }
   }
@@ -542,8 +559,8 @@ export class Crits {
         this.angularVelocity[i] = 0
       }
     })
-    // Death
-    this.forEachIndex((i) => this.die(i), true)
+    // Animations
+    this.forEachIndex((i) => this.animate(i), /*includeAnimating=*/ true)
   }
 }
 
