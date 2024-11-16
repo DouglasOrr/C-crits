@@ -26,6 +26,10 @@ function playerColor(player: number): THREE.Color {
   }
 }
 
+interface View {
+  update(dt: number): void
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 // Crits
 
@@ -77,7 +81,7 @@ void main() {
 }
 `
 
-export class CritsView {
+export class CritsView implements View {
   private geometry: THREE.InstancedBufferGeometry
   private nFrames: number
 
@@ -216,7 +220,7 @@ void main() {
 }
 `
 
-export class BulletsView {
+export class BulletsView implements View {
   private geometry: THREE.InstancedBufferGeometry
 
   constructor(
@@ -291,7 +295,7 @@ export class BulletsView {
 ///////////////////////////////////////////////////////////////////////////////
 // Bases
 
-export class BasesView {
+export class BasesView implements View {
   materials: THREE.MeshBasicMaterial[] = []
   animationTheta: number[] = []
 
@@ -347,7 +351,7 @@ export class BasesView {
 ///////////////////////////////////////////////////////////////////////////////
 // Map
 
-export class MapView {
+export class MapView implements View {
   constructor(map: Maps.Map, scene: THREE.Scene) {
     for (let i = 0; i < map.tiles.length; i++) {
       const x = i % map.width

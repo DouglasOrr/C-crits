@@ -109,28 +109,22 @@ async function load(page: Page) {
   })
 
   const scene = new THREE.Scene()
-  const bulletsView = new Views.BulletsView(
-    sim.bullets,
-    scene,
-    /*isHeal*/ false
-  )
-  const healBulletsView = new Views.BulletsView(
-    sim.healBullets,
-    scene,
-    /*isHeal*/ true
-  )
-  const critsView = new Views.CritsView(
-    sim.crits,
-    scene,
-    await loadTexture("textures/crit_a4.png")
-  )
-  const mapView = new Views.MapView(level.map, scene)
-  const basesView = new Views.BasesView(
-    sim.bases,
-    scene,
-    await loadTexture("textures/base.png"),
-    await loadTexture("textures/base_n.png")
-  )
+  const views = [
+    new Views.MapView(level.map, scene),
+    new Views.BasesView(
+      sim.bases,
+      scene,
+      await loadTexture("textures/base.png"),
+      await loadTexture("textures/base_n.png")
+    ),
+    new Views.CritsView(
+      sim.crits,
+      scene,
+      await loadTexture("textures/crit_a4.png")
+    ),
+    new Views.BulletsView(sim.bullets, scene, /*isHeal*/ false),
+    new Views.BulletsView(sim.healBullets, scene, /*isHeal*/ true),
+  ]
 
   // Render and physics loop
   let updateTime: number | undefined = undefined
@@ -147,11 +141,9 @@ async function load(page: Page) {
       }
     }
     const dt = time - (animationTime ?? time)
-    bulletsView.update(dt)
-    healBulletsView.update(dt)
-    critsView.update(dt)
-    mapView.update(dt)
-    basesView.update(dt)
+    for (const view of views) {
+      view.update(dt)
+    }
     renderer.render(scene, camera)
     fpsCounter.update()
     if (sim.playerWin !== null) {
