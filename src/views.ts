@@ -7,8 +7,8 @@ const S = {
   // Palette
   light: new THREE.Color(0xeeeeee),
   dark: new THREE.Color(0x000000),
-  primary: new THREE.Color(0x4040ff),
-  secondary: new THREE.Color(0xff8c80),
+  primary: new THREE.Color(0x4090e8),
+  secondary: new THREE.Color(0xf89080),
 
   // Params
   bulletLength: 0.3, // m
