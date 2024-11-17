@@ -182,11 +182,8 @@ export class CritsView implements View {
       angle.array[index] = angle.array[index + 1] = -this.crits.angle[i]
       if (this.crits.speed[i] || this.crits.angularVelocity[i]) {
         const animationRate = 3
-        frame.array[index] =
+        frame.array[index] = frame.array[index + 1] =
           (frame.array[index] + dt * animationRate * this.nFrames) %
-          this.nFrames
-        frame.array[index + 1] =
-          (frame.array[index + 1] + dt * animationRate * this.nFrames) %
           this.nFrames
       }
       player.array[index] = player.array[index + 1] = this.crits.player[i]
