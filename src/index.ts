@@ -96,7 +96,7 @@ async function load(page: Page) {
   })
 
   // Rendering
-  const renderer = new THREE.WebGLRenderer()
+  const renderer = new THREE.WebGLRenderer({ antialias: false })
   renderer.setSize(page.sim.offsetWidth, page.sim.offsetHeight)
   page.sim.appendChild(renderer.domElement)
 
@@ -120,7 +120,7 @@ async function load(page: Page) {
     new Views.CritsView(
       sim.crits,
       scene,
-      await loadTexture("textures/crit_a4.png")
+      await loadTexture("textures/crit.png")
     ),
     new Views.BulletsView(sim.bullets, scene, /*isHeal*/ false),
     new Views.BulletsView(sim.healBullets, scene, /*isHeal*/ true),
