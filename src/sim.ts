@@ -48,7 +48,7 @@ export const S = {
   // Animations
   critterSpawnTime: 0.5, // s
   critterDeathTime: 0.5, // s
-  baseDeathTime: 2, // s
+  baseDeathTime: 3, // s
 }
 
 // Bullets can be for damage or healing!

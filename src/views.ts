@@ -52,6 +52,7 @@ attribute float angle;
 attribute float frame;
 attribute float player;
 attribute float fadeOut;
+attribute float scale;
 
 varying vec2 vUv;
 varying float vFrame;
@@ -63,7 +64,7 @@ void main() {
     vFrame = frame;
     vPlayer = player;
     vFadeOut = fadeOut;
-    vec2 p = vec2(
+    vec2 p = scale * vec2(
         side * position.x * cos(angle) - position.y * sin(angle),
         side * position.x * sin(angle) + position.y * cos(angle)
     ) + offset;
@@ -157,6 +158,7 @@ export class CritsView implements View {
       frame: new Float32Array(instances * 1),
       player: new Float32Array(instances * 1),
       fadeOut: new Float32Array(instances * 1),
+      scale: new Float32Array(instances * 1).fill(1),
     }).forEach(([name, a]) => {
       const attribute = new THREE.InstancedBufferAttribute(
         a,
@@ -175,6 +177,7 @@ export class CritsView implements View {
     const frame = this.geometry.getAttribute("frame")
     const player = this.geometry.getAttribute("player")
     const fadeOut = this.geometry.getAttribute("fadeOut")
+    const scale = this.geometry.getAttribute("scale")
     let index = 0
     this.crits.forEachIndex((i) => {
       offset.array.set(this.crits.position[i], 2 * index)
@@ -187,12 +190,21 @@ export class CritsView implements View {
           this.nFrames
       }
       player.array[index] = player.array[index + 1] = this.crits.player[i]
-      fadeOut.array[index] = fadeOut.array[index + 1] =
-        this.crits.health[i] > 0
-          ? 0
-          : this.crits.spawnTimer[i] > 0
-          ? 1 - this.crits.spawnTimer[i] / Sim.S.critterSpawnTime
-          : this.crits.deathTimer[i] / Sim.S.critterDeathTime
+      if (this.crits.health[i] > 0) {
+        fadeOut.array[index] = fadeOut.array[index + 1] = 0
+        scale.array[index] = scale.array[index + 1] = 1
+      } else {
+        if (this.crits.spawnTimer[i] > 0) {
+          fadeOut.array[index] = fadeOut.array[index + 1] =
+            1 - this.crits.spawnTimer[i] / Sim.S.critterSpawnTime
+          scale.array[index] = scale.array[index + 1] = 1
+        } else {
+          fadeOut.array[index] = fadeOut.array[index + 1] =
+            this.crits.deathTimer[i] / Sim.S.critterDeathTime
+          scale.array[index] = scale.array[index + 1] =
+            1 + this.crits.deathTimer[i] / Sim.S.critterDeathTime
+        }
+      }
       index += 2
     }, /*includeAnimating=*/ true)
     this.geometry.instanceCount = index
@@ -201,6 +213,7 @@ export class CritsView implements View {
     frame.needsUpdate = true
     player.needsUpdate = true
     fadeOut.needsUpdate = true
+    scale.needsUpdate = true
   }
 }
 
@@ -320,6 +333,7 @@ precision highp float;
 
 uniform mat4 projectionMatrix;
 uniform mat4 modelViewMatrix;
+uniform float dying;
 attribute vec3 position;
 attribute vec2 uv;
 
@@ -327,7 +341,9 @@ varying vec2 vUv;
 
 void main() {
     vUv = uv;
-    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1);
+    float scale = 1.0 + dying * (-2.5 + 6.0 * dying);
+    gl_Position = projectionMatrix * modelViewMatrix
+      * (vec4(scale, scale, 1, 1) * vec4(position, 1));
 }
 `
 const basesFragmentShader = `
@@ -341,7 +357,8 @@ uniform sampler2D tex;
 varying vec2 vUv;
 
 void main() {
-    bool visible = (dying == 0.0) || hash2(gl_FragCoord.x, gl_FragCoord.y) > dying;
+    bool visible = (dying == 0.0)
+      || hash2(gl_FragCoord.x, gl_FragCoord.y) > dying*dying;
     gl_FragColor = vec4(color, float(visible)) * texture2D(tex, vUv);
 }
 `
