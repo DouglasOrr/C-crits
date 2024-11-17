@@ -1,29 +1,35 @@
 import * as THREE from "three"
 import * as Maps from "./maps"
 import * as Sim from "./sim"
-
-const Palette = {
-  light: new THREE.Color(0xffffffff),
-  dark: new THREE.Color(0xff000000),
-  primary: new THREE.Color(0xff4040ff),
-  secondary: new THREE.Color(0xffff0000),
-}
+import { Vec2 } from "./common"
 
 const S = {
+  // Palette
+  light: new THREE.Color(0xeeeeee),
+  dark: new THREE.Color(0x000000),
+  primary: new THREE.Color(0x4040ff),
+  secondary: new THREE.Color(0xff8c80),
+
+  // Params
   bulletLength: 0.3, // m
-  bulletThickness: 0.1, // m
-  captureAnimationPeriod: 0.5, // s
+  bulletThickness: 0.15, // m
 }
+
+// Helpers
 
 function playerColor(player: number): THREE.Color {
   switch (player) {
     case 0:
-      return Palette.primary
+      return S.primary
     case 1:
-      return Palette.secondary
+      return S.secondary
     default:
-      return Palette.light
+      return S.light
   }
+}
+
+function bulletColor(isHeal: boolean): THREE.Color {
+  return isHeal ? S.primary : S.secondary
 }
 
 interface View {
@@ -35,6 +41,34 @@ float hash2(float x, float y) {
     return mod((47.0 * x + 97.0 * y + 3.0 * x*y) / 11.0, 1.0);
 }
 `
+
+// An InstancedBufferGeometry with "position" initialized to a 2D plane
+class PlaneInstancedBufferGeometry extends THREE.InstancedBufferGeometry {
+  constructor(size: Vec2, origin: Vec2, z: number) {
+    super()
+    const [dx, dy] = [size[0] / 2, size[1] / 2]
+    const [ox, oy] = origin
+    this.setIndex([0, 2, 1, 2, 3, 1])
+    this.setAttribute(
+      "position",
+      new THREE.BufferAttribute(
+        // prettier-ignore
+        new Float32Array([
+          ox - dx, ox + dy,
+          ox + dx, ox + dy,
+          ox - dx, ox - dy,
+          ox + dx, ox - dy,
+        ]),
+        2
+      )
+    )
+    // Set bounding sphere to avoid an error with 2D position
+    this.boundingSphere = new THREE.Sphere(
+      new THREE.Vector3(ox, oy, z),
+      Math.max(dx, dy)
+    )
+  }
+}
 
 ///////////////////////////////////////////////////////////////////////////////
 // Crits
@@ -118,24 +152,9 @@ export class CritsView implements View {
       transparent: true,
       side: THREE.DoubleSide,
     })
-    this.geometry = new THREE.InstancedBufferGeometry()
-    this.geometry.instanceCount = 0
-
-    // Buffer data
-    this.geometry.setIndex([0, 2, 1, 2, 3, 1])
     const R = Sim.S.radius
-    this.geometry.setAttribute(
-      "position",
-      new THREE.BufferAttribute(
-        new Float32Array([0, R, /**/ R, R, /**/ 0, -R, /**/ R, -R]),
-        2
-      )
-    )
-    // Set bounding sphere to avoid an error with 2D position
-    this.geometry.boundingSphere = new THREE.Sphere(
-      new THREE.Vector3(0, 0, 1),
-      R
-    )
+    this.geometry = new PlaneInstancedBufferGeometry([R, 2 * R], [R / 2, 0], 1)
+    this.geometry.instanceCount = 0
 
     // Shrink the u-coordinate to avoid spritesheet artifacts
     const uMax = 1 - this.nFrames / texture.image.width
@@ -263,34 +282,18 @@ export class BulletsView implements View {
   ) {
     const material = new THREE.RawShaderMaterial({
       uniforms: {
-        color: {
-          value: new THREE.Color(isHeal ? Palette.primary : Palette.secondary),
-        },
+        color: { value: bulletColor(isHeal) },
       },
       vertexShader: bulletsVertexShader,
       fragmentShader: bulletsFragmentShader,
       transparent: true,
-      side: THREE.DoubleSide,
     })
-    this.geometry = new THREE.InstancedBufferGeometry()
+    this.geometry = new PlaneInstancedBufferGeometry(
+      [S.bulletThickness, S.bulletLength],
+      [0, 0],
+      0.5
+    )
     this.geometry.instanceCount = 0
-
-    // Buffer data
-    this.geometry.setIndex([0, 2, 1, 2, 3, 1])
-    const DY = S.bulletLength / 2
-    const DX = S.bulletThickness / 2
-    this.geometry.setAttribute(
-      "position",
-      new THREE.BufferAttribute(
-        new Float32Array([-DX, DY, /**/ DX, DY, /**/ -DX, -DY, /**/ DX, -DY]),
-        2
-      )
-    )
-    // Set bounding sphere to avoid an error with 2D position
-    this.geometry.boundingSphere = new THREE.Sphere(
-      new THREE.Vector3(0, 0, 0.5),
-      Math.max(DX, DY)
-    )
 
     // Instance data
     const instances = Sim.S.maxBullets
@@ -432,27 +435,96 @@ export class BasesView implements View {
 ///////////////////////////////////////////////////////////////////////////////
 // Map
 
+const mapVertexShader = `
+precision highp float;
+
+uniform mat4 projectionMatrix;
+uniform mat4 modelViewMatrix;
+attribute vec2 position;
+attribute vec2 offset;
+
+void main() {
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position + offset, 0, 1);
+}
+`
+const mapFragmentShader = `
+precision highp float;
+
+uniform vec3 colors[3];
+uniform float thresholds[2];
+uniform float params[5];      // [x, y, xy, xx, yy]
+
+// Note: I bet this shader is expensive!
+void main() {
+    float x = gl_FragCoord.x;
+    float y = gl_FragCoord.y;
+
+    float hash = mod(
+      mod(params[0] * x + params[1] * y, 1.0)
+      + mod(params[2] * x*y, 1.0) + mod(params[3] * x*x, 1.0) + mod(params[4] * y*y, 1.0),
+      1.0);
+
+    vec3 color =
+      float(hash < thresholds[0]) * colors[0]
+      + float(thresholds[0] <= hash && hash < thresholds[1]) * colors[1]
+      + float(thresholds[1] <= hash) * colors[2];
+    gl_FragColor = vec4(color, 1);
+}
+`
+
 export class MapView implements View {
+  static createMaterial(
+    colors: THREE.Color[],
+    thresholds: number[],
+    params: number[]
+  ): THREE.ShaderMaterial {
+    return new THREE.RawShaderMaterial({
+      uniforms: {
+        colors: { value: colors },
+        thresholds: { value: thresholds },
+        params: { value: params },
+      },
+      vertexShader: mapVertexShader,
+      fragmentShader: mapFragmentShader,
+      transparent: true,
+    })
+  }
+
   constructor(map: Maps.Map, scene: THREE.Scene) {
+    const waterXY: Vec2[] = []
+    const landXY: Vec2[] = []
     for (let i = 0; i < map.tiles.length; i++) {
-      const x = i % map.width
-      const y = Math.floor(i / map.width)
-      const geometry = new THREE.PlaneGeometry(1, 1)
-      const material = new THREE.MeshBasicMaterial({
-        color: (() => {
-          switch (map.tiles[i]) {
-            case Maps.Tile.Water:
-              return Palette.primary
-            case Maps.Tile.Land:
-            case Maps.Tile.Base:
-              return Palette.light
-          }
-        })(),
-      })
-      const mesh = new THREE.Mesh(geometry, material)
-      mesh.position.set(x + 0.5, y + 0.5, 0)
-      scene.add(mesh)
+      const x = (i % map.width) + 0.5
+      const y = Math.floor(i / map.width) + 0.5
+      ;(map.tiles[i] === Maps.Tile.Water ? waterXY : landXY).push([x, y])
     }
+
+    function createTiles(xys: Vec2[], material: THREE.ShaderMaterial) {
+      const geometry = new PlaneInstancedBufferGeometry([1, 1], [0, 0], 0)
+      geometry.instanceCount = xys.length
+      const a = new Float32Array(xys.length * 2)
+      for (let i = 0; i < xys.length; i++) {
+        a.set(xys[i], 2 * i)
+      }
+      geometry.setAttribute("offset", new THREE.InstancedBufferAttribute(a, 2))
+      scene.add(new THREE.Mesh(geometry, material))
+    }
+    createTiles(
+      waterXY,
+      MapView.createMaterial(
+        [S.primary, S.dark, S.light],
+        [0.85, 0.95, 1.0],
+        [1 / 9, 1 / 19, 1 / 11, 1 / 3, 1 / 3]
+      )
+    )
+    createTiles(
+      landXY,
+      MapView.createMaterial(
+        [S.light, S.secondary, S.primary],
+        [0.98, 0.99, 1.0],
+        [1 / 2477, 1 / 3407, 1 / 17, 1 / 256, 1 / 256]
+      )
+    )
   }
   update(dt: number): void {
     // Nothing to do
