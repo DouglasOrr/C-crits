@@ -61,7 +61,15 @@ export enum Event {
   ProgramLoad,
   ProgramError,
 }
-export type EventListner = (event: Event) => void
+export type EventListener = (event: Event, data?: any) => void
+
+export function listeners(...listeners: EventListener[]): EventListener {
+  return (event: Event, data?: any) => {
+    for (const listener of listeners) {
+      listener(event, data)
+    }
+  }
+}
 
 // Bullets can be for damage or healing!
 export class Bullets {
@@ -118,7 +126,7 @@ export class Bases {
   spawnRecharge: number[]
   healRecharge: number[]
 
-  constructor(private level: Maps.Level, private listener: EventListner) {
+  constructor(private level: Maps.Level, private listener: EventListener) {
     const n = level.map.basePosition.length
     this.position = level.map.basePosition.map((p) => v2Add(p, [0.5, 0.5]))
     this.direction = level.map.baseDirection.map((d) => (d * Math.PI) / 4)
@@ -315,7 +323,7 @@ export class Bases {
 export class Players {
   program: Crasm.Program[]
 
-  constructor(n: number, private listener: EventListner) {
+  constructor(n: number, private listener: EventListener) {
     this.program = Array(n).fill(Crasm.emptyProgram())
   }
 
@@ -334,8 +342,11 @@ export class Players {
       this.program[0] = Crasm.parse(program)
       this.listener(Event.ProgramLoad)
     } catch (error) {
-      console.log(error)
-      this.listener(Event.ProgramError)
+      if (error instanceof Crasm.ParseError) {
+        this.listener(Event.ProgramError, error)
+      } else {
+        throw error
+      }
     }
   }
 }
@@ -362,7 +373,7 @@ export class Crits {
   deathTimer: number[] = Array(S.maxCritters).fill(0)
   memory: Memory[] = Array.from({ length: S.maxCritters }, () => new Memory())
 
-  constructor(private listener: EventListner) {}
+  constructor(private listener: EventListener) {}
 
   // Only selects living critters
   forEachIndex(
@@ -618,7 +629,7 @@ export class Sim {
   pathfinder: Maps.Pathfinder
   playerWin: boolean | null = null
 
-  constructor(level: Maps.Level, listener: EventListner) {
+  constructor(level: Maps.Level, listener: EventListener) {
     this.crits = new Crits(listener)
     this.level = level
     this.pathfinder = new Maps.Pathfinder(level.map)

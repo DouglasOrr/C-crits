@@ -9,12 +9,14 @@ import * as Sound from "./sound"
 class Page {
   sim: HTMLElement
   editor: HTMLTextAreaElement
+  output: HTMLElement
   fpsCounter: HTMLElement
   outcome: HTMLElement
 
   constructor() {
     this.sim = document.getElementById("col-sim")!
     this.editor = document.getElementById("editor")! as HTMLTextAreaElement
+    this.output = document.getElementById("output")!
     this.fpsCounter = document.getElementById("fps-counter")!
     this.outcome = document.getElementById("outcome")!
   }
@@ -86,7 +88,20 @@ async function load(page: Page) {
   // World
   const playOnEvent = await Sound.load()
   const level = await loadLevel("level_0")
-  const sim = new Sim.Sim(level, playOnEvent)
+  const sim = new Sim.Sim(
+    level,
+    Sim.listeners(playOnEvent, (event: Sim.Event, data?: any) => {
+      if (event === Sim.Event.ProgramError) {
+        console.error(data)
+        page.output.textContent = data.show()
+        page.output.dataset.status = "error"
+      }
+      if (event === Sim.Event.ProgramLoad) {
+        page.output.textContent = "Program loaded"
+        page.output.dataset.status = "ok"
+      }
+    })
+  )
 
   // Input
   page.editor.value = window.localStorage.getItem("program") ?? ""

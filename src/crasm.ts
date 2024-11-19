@@ -1,4 +1,4 @@
-// Types
+// Definitions
 
 export type Value = null | number | string | number[]
 export type Memory = { [key: string]: Value }
@@ -6,9 +6,17 @@ export enum Opcode {
   MOV,
   RET,
 }
+export const OpSpecs = new Map<string, (string | string[])[]>([
+  ["MOV", [["register", "literal"], "register"]],
+  ["RET", []],
+])
 export type Arg = { register: string } | { literal: Value }
 export type Op = { opcode: Opcode; args: Arg[]; line: number }
 export type Program = { ops: Op[]; labels: { [key: string]: number } }
+
+export function emptyProgram(): Program {
+  return { ops: [], labels: {} }
+}
 
 // Execution
 
@@ -43,55 +51,132 @@ export function run(program: Program, memory: Memory): void {
 
 // Parsing
 
-export function emptyProgram(): Program {
-  return { ops: [], labels: {} }
+export type SourceLocation = { line: number; column: number }
+export type Token = { t: string; p: SourceLocation }
+
+export class ParseError extends Error {
+  constructor(
+    message: string,
+    public location: SourceLocation,
+    public source: string[]
+  ) {
+    super(message)
+  }
+
+  show(): string {
+    const lines = [
+      `L${this.location.line} ${this.message}`,
+      `| ${this.source[this.location.line]}`,
+      `| ${" ".repeat(this.location.column)}^`,
+    ]
+    return lines.join("\n")
+  }
 }
 
-export function tokenise(line: string): string[] {
+export function tokenise(line: string, lineNumber: number): Token[] {
   const withoutComments = (line.match(/^([^;]+)/) ?? [""])[0]
-  return withoutComments.match(/([^ ]+)/g) ?? []
+  const matches = withoutComments.matchAll(/([^ ]+)/g)
+  return Array.from(matches, (m) => ({
+    t: m[0],
+    p: { line: lineNumber, column: m.index },
+  }))
 }
 
-export function parseLiteral(token: string): Value {
-  if (token.startsWith("@")) {
-    return token
+export function parseLiteral(token: Token, source: string[]): Value {
+  if (token.t.startsWith("@")) {
+    return token.t
   }
-  if (token.includes(",")) {
-    return token
-      .split(",")
-      .filter((s) => s !== "")
-      .map(Number)
+  if (token.t.includes(",")) {
+    // A lot of extra code to track the position of the subToken
+    const array = []
+    let pos = -1
+    while (pos < token.t.length) {
+      let nextPos = token.t.indexOf(",", pos + 1)
+      nextPos = nextPos === -1 ? token.t.length : nextPos
+      const subToken = token.t.slice(pos + 1, nextPos)
+      if (subToken !== "") {
+        const value = Number(subToken)
+        if (isNaN(value)) {
+          throw new ParseError(
+            `Unexpected array element '${subToken}'`,
+            { line: token.p.line, column: token.p.column + pos + 1 },
+            source
+          )
+        }
+        array.push(value)
+      }
+      pos = nextPos
+    }
+    return array
   }
-  if (token === "null") {
+  if (token.t === "null") {
     return null
   }
-  const number = Number(token)
+  const number = Number(token.t)
   if (isNaN(number)) {
-    throw new Error(`Unexpected literal: ${token}`)
+    throw new ParseError(`Unexpected literal '${token.t}'`, token.p, source)
   }
   return number
 }
 
-export function parse(source: string): Program {
-  const lines = source.split("\n")
-  const ops: Op[] = []
-  const labels: { [key: string]: number } = {}
-  for (let line = 0; line < lines.length; ++line) {
-    const tokens = tokenise(lines[line])
-    if (tokens.length == 0) {
-    } else if (tokens[0].startsWith("@")) {
-      labels[tokens[0]] = ops.length
-    } else {
-      const opcode = Opcode[tokens[0].toUpperCase() as keyof typeof Opcode]
-      const args = tokens.slice(1).map((t) => {
-        if (t.startsWith("$")) {
-          return { register: t }
-        } else {
-          return { literal: parseLiteral(t) }
-        }
-      })
-      ops.push({ opcode, args, line })
+function parseLine(source: string[], line: number, program: Program): void {
+  const tokens = tokenise(source[line], line)
+  if (tokens.length == 0) {
+    // skip empty lines
+  } else if (tokens[0].t.startsWith("@")) {
+    program.labels[tokens[0].t] = program.ops.length
+    if (tokens.length >= 2) {
+      throw new ParseError(`Unexpected code after @label`, tokens[1].p, source)
     }
+  } else {
+    const opcodeKey = tokens[0].t.toUpperCase()
+    if (!(opcodeKey in Opcode)) {
+      throw new ParseError(
+        `Bad instruction '${tokens[0].t}'`,
+        tokens[0].p,
+        source
+      )
+    }
+    const opcode = Opcode[opcodeKey as keyof typeof Opcode]
+    const args = tokens.slice(1).map((token) => {
+      if (token.t.startsWith("$")) {
+        return { register: token.t }
+      } else {
+        return { literal: parseLiteral(token, source) }
+      }
+    })
+    const spec = OpSpecs.get(opcodeKey)!
+    if (spec.length !== args.length) {
+      throw new ParseError(
+        `${Opcode[opcode]} expects ${spec.length} arguments, got ${args.length}`,
+        tokens[0].p,
+        source
+      )
+    }
+    for (let i = 0; i < spec.length; ++i) {
+      const argType = Object.keys(args[i])[0]
+      if (
+        argType !== spec[i] &&
+        !(Array.isArray(spec[i]) && spec[i].includes(argType))
+      ) {
+        throw new ParseError(
+          `${Opcode[opcode]} argument ${i + 1} should be a ${
+            spec[i]
+          }, got ${argType}`,
+          tokens[i + 1].p,
+          source
+        )
+      }
+    }
+    program.ops.push({ opcode, args, line })
   }
-  return { ops, labels }
+}
+
+export function parse(source: string): Program {
+  const program = emptyProgram()
+  const lines = source.split("\n")
+  for (let line = 0; line < lines.length; ++line) {
+    parseLine(lines, line, program)
+  }
+  return program
 }
