@@ -4,6 +4,7 @@ import * as Crasm from "./crasm"
 import * as Maps from "./maps"
 import * as Sim from "./sim"
 import * as Views from "./views"
+import * as Sound from "./sound"
 
 class Page {
   sim: HTMLElement
@@ -83,14 +84,15 @@ function updateCamera(
 
 async function load(page: Page) {
   // World
+  const playOnEvent = await Sound.load()
   const level = await loadLevel("level_0")
-  const sim = new Sim.Sim(level)
+  const sim = new Sim.Sim(level, playOnEvent)
 
   // Input
   page.editor.value = window.localStorage.getItem("program") ?? ""
   page.editor.addEventListener("keydown", (event) => {
     if (event.ctrlKey && event.key === "Enter") {
-      sim.players.program[0] = Crasm.parse(page.editor.value!)
+      sim.players.loadProgram(page.editor.value!)
       window.localStorage.setItem("program", page.editor.value!)
     }
   })

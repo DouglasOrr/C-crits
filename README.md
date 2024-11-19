@@ -10,3 +10,7 @@ npm install  # first time
 npx webpack serve
 npm test
 ```
+
+## Attribution
+
+Sound effects obtained from [Zapsplat](https://www.zapsplat.com). See [attribution.md](./attribution.md) for details.

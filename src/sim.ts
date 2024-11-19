@@ -48,8 +48,20 @@ export const S = {
   // Animations
   critterSpawnTime: 0.5, // s
   critterDeathTime: 0.5, // s
-  baseDeathTime: 3, // s
+  baseDeathTime: 4.0, // s
 }
+
+export enum Event {
+  Attack,
+  Heal,
+  CritSpawn,
+  CritDeath,
+  BaseDeath,
+  BaseCapture,
+  ProgramLoad,
+  ProgramError,
+}
+export type EventListner = (event: Event) => void
 
 // Bullets can be for damage or healing!
 export class Bullets {
@@ -106,7 +118,7 @@ export class Bases {
   spawnRecharge: number[]
   healRecharge: number[]
 
-  constructor(private level: Maps.Level) {
+  constructor(private level: Maps.Level, private listener: EventListner) {
     const n = level.map.basePosition.length
     this.position = level.map.basePosition.map((p) => v2Add(p, [0.5, 0.5]))
     this.direction = level.map.baseDirection.map((d) => (d * Math.PI) / 4)
@@ -141,10 +153,14 @@ export class Bases {
   explode(p: Vec2) {
     this.forEachIndex((i) => {
       if (
+        this.health[i] > 0 &&
         !Bases.isNeutralBase(i) &&
         v2Equal(v2Floor(p), v2Floor(this.position[i]))
       ) {
         this.health[i] = Math.max(this.health[i] - S.damage, 0)
+        if (this.health[i] === 0) {
+          this.listener(Event.BaseDeath)
+        }
       }
     })
   }
@@ -270,6 +286,7 @@ export class Bases {
         this.owner[base] = capturingPlayer
         this.captureProgress[base] = 0
         this.capturePlayer[base] = capturingPlayer
+        this.listener(Event.BaseCapture)
       }
     }
   }
@@ -298,7 +315,7 @@ export class Bases {
 export class Players {
   program: Crasm.Program[]
 
-  constructor(n: number) {
+  constructor(n: number, private listener: EventListner) {
     this.program = Array(n).fill(Crasm.emptyProgram())
   }
 
@@ -309,6 +326,16 @@ export class Players {
   forEachIndex(fn: (index: number) => void): void {
     for (let i = 0; i < this.program.length; i++) {
       fn(i)
+    }
+  }
+
+  loadProgram(program: string): void {
+    try {
+      this.program[0] = Crasm.parse(program)
+      this.listener(Event.ProgramLoad)
+    } catch (error) {
+      console.log(error)
+      this.listener(Event.ProgramError)
     }
   }
 }
@@ -334,6 +361,8 @@ export class Crits {
   spawnTimer: number[] = Array(S.maxCritters).fill(0)
   deathTimer: number[] = Array(S.maxCritters).fill(0)
   memory: Memory[] = Array.from({ length: S.maxCritters }, () => new Memory())
+
+  constructor(private listener: EventListner) {}
 
   // Only selects living critters
   forEachIndex(
@@ -363,6 +392,7 @@ export class Crits {
       this.spawnTimer[i] = S.dt
       this.deathTimer[i] = 0
       this.memory[i] = new Memory()
+      this.listener(Event.CritSpawn)
     }
   }
 
@@ -386,16 +416,26 @@ export class Crits {
 
   explode(p: Vec2) {
     this.forEachIndex((i) => {
-      if (distance(this.position[i], p) < S.explosionRadius) {
+      if (
+        this.health[i] > 0 &&
+        distance(this.position[i], p) < S.explosionRadius
+      ) {
         this.health[i] = Math.max(this.health[i] - S.damage, 0)
+        if (this.health[i] === 0) {
+          this.listener(Event.CritDeath)
+        }
       }
     })
   }
 
   heal(p: Vec2): void {
     this.forEachIndex((i) => {
-      if (distance(this.position[i], p) < S.healRadius) {
+      if (
+        this.health[i] < S.health &&
+        distance(this.position[i], p) < S.healRadius
+      ) {
         this.health[i] = Math.min(this.health[i] + S.healing, S.health)
+        this.listener(Event.Heal)
       }
     })
   }
@@ -498,6 +538,7 @@ export class Crits {
       if (this.attackRecharge[i] === 0) {
         this.attackRecharge[i] = S.attackTime
         bullets.spawn(position, target)
+        this.listener(Event.Attack)
       }
     } else {
       this.angularVelocity[i] = clamp(
@@ -566,7 +607,7 @@ export class Crits {
 
 export class Sim {
   // Dynamic state
-  crits: Crits = new Crits()
+  crits: Crits
   players: Players
   bases: Bases
   bullets: Bullets = new Bullets()
@@ -577,11 +618,12 @@ export class Sim {
   pathfinder: Maps.Pathfinder
   playerWin: boolean | null = null
 
-  constructor(level: Maps.Level) {
+  constructor(level: Maps.Level, listener: EventListner) {
+    this.crits = new Crits(listener)
     this.level = level
     this.pathfinder = new Maps.Pathfinder(level.map)
-    this.players = new Players(level.initialCritters.length)
-    this.bases = new Bases(level)
+    this.players = new Players(level.initialCritters.length, listener)
+    this.bases = new Bases(level, listener)
     for (const [player, count] of level.initialCritters.entries()) {
       for (let i = 0; i < count; ++i) {
         this.bases.spawnCritter(player, this.crits)
