@@ -4,8 +4,8 @@ const S = {
   debounceTime: 0.05, // s
   sounds: [
     [Sim.Event.Attack, "attack", { v: 0.4, dt: 300 }],
-    [Sim.Event.CritDeath, "crit_death", { v: 0.3 }],
-    [Sim.Event.CritSpawn, "crit_spawn", { v: 0.5, dt: 300 }],
+    [Sim.Event.CritDeath, "crit_death", { v: 0.3, dt: 300 }],
+    [Sim.Event.CritSpawn, "crit_spawn", { v: 1.0 }],
     [Sim.Event.BaseCapture, "base_capture", { v: 1.0 }],
     [Sim.Event.BaseDeath, "base_death", { v: 1.0 }],
     [Sim.Event.ProgramLoad, "program_load", { v: 0.7 }],
