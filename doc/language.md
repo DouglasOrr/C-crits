@@ -71,6 +71,14 @@ add 1,2 $x $y    ; add `[1,2]` to $x and store the result in $y
 sub $x 3.45 $x   ; subtract 3.45 from $x$ and store the result back in $x
 ```
 
+**`rand`**
+
+Generate a random number between 0 (inclusive) and 1 (exclusive).
+
+```
+rand $x   ; $x contains a random number in [0, 1)
+```
+
 ## Array instructions
 
 **`push`**
@@ -78,8 +86,40 @@ sub $x 3.45 $x   ; subtract 3.45 from $x$ and store the result back in $x
 Concatenate or append the second argument to the first argument.
 
 ```
-push 1 2 $x          ; $x contains 1,2
-push 10,20 30,40 $x  ; $x contains 10,20,30,40
+push 1 2 $x           ; $x contains 1,2
+push 10,20 30,40 $x   ; $x contains 10,20,30,40
+```
+
+**`get`**
+
+Extract an element from an array, based on index (`GET array index dest`).
+
+```
+get 11,12,13 1 $x   ; $x contains 12
+```
+
+**`vlen`**
+
+Get the Euclidean length of a vector.
+
+```
+vlen 3,4 $x   ; $x contains 5
+```
+
+**`vdir`**
+
+Get the direction of a vector, in radians (0 = north, 1.57 = east).
+
+```
+vdir 1,1 $x   ; $x contains 0.785
+```
+
+**`unitv`**
+
+Get the unit vector for a given direction.
+
+```
+unitv 3.1415 $x   ; $x contains [0, -1]
 ```
 
 ## Control flow instructions
@@ -112,9 +152,10 @@ jez $patience @return_home  ; jump to `@return_home` if $patience is 0 (or 0,0)
 
 ## Special registers
 
-| Register    | Direction | Type            | Description                                                                                         |
-| ----------- | --------- | --------------- | --------------------------------------------------------------------------------------------------- |
-| **`$id`**   | R         | `number`        | critter ID (unique, starting from 0)                                                                |
-| **`$pos`**  | R         | `number`        | current critter position                                                                            |
-| **`$tgt`**  | R/W       | `x,y` \| `null` | set to non-null to attack that position, if currently in range (this takes precedence over `$dest`) |
-| **`$dest`** | R/W       | `x,y` \| `null` | set to non-null to move to that position                                                            |
+| Register     | Direction | Type               | Description                                                                                         |
+| ------------ | --------- | ------------------ | --------------------------------------------------------------------------------------------------- |
+| **`$id`**    | R         | `number`           | critter ID (unique, starting from 0)                                                                |
+| **`$pos`**   | R         | `number`           | current critter position                                                                            |
+| **`$tgt`**   | R/W       | `x,y` \| `null`    | set to non-null to attack that position, if currently in range (this takes precedence over `$dest`) |
+| **`$dest`**  | R/W       | `x,y` \| `null`    | set to non-null to move to that position                                                            |
+| **`$state`** | R/W       | `@label` \| `null` | start point for the next update                                                                     |

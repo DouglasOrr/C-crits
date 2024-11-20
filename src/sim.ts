@@ -383,6 +383,7 @@ class Memory {
   // Outputs
   $dest: Vec2 | null = null
   $tgt: Vec2 | null = null
+  $state: string | null = null
 }
 
 // Crits indices "slots" have the following states:
@@ -424,7 +425,7 @@ export class Crits {
 
   // Program
 
-  programUpdate(players: Players): void {
+  programUpdate(players: Players, map: Maps.Map): void {
     this.forEachIndex((i) => {
       const mem = this.memory[i]
 
@@ -437,40 +438,43 @@ export class Crits {
         Crasm.run(
           players.program[this.player[i]],
           mem as unknown as Crasm.Memory,
-          S.cycleLimit
+          S.cycleLimit,
+          mem.$state
         )
-      } catch (error) {
-        if (error instanceof Crasm.RuntimeError) {
-          players.runtimeError(
-            this.player[i],
-            this.id[i],
-            error.message,
-            error.line
-          )
+      } catch (e) {
+        if (e instanceof Crasm.RuntimeError) {
+          players.runtimeError(this.player[i], this.id[i], e.message, e.line)
         } else {
-          throw error
+          throw e
         }
       }
 
       // 3. Copy output memory to command state
-      if (isVec2(mem.$dest)) {
-        this.destination[i] = mem.$dest
-      } else if (mem.$dest !== null) {
-        players.runtimeError(
-          this.player[i],
-          this.id[i],
-          `$dst should be null or x,y but got ${mem.$dest}`
-        )
+      const readVec2 = (mem: Memory, key: keyof Memory): Vec2 | null => {
+        const value = mem[key]
+        if (value === null) {
+          return null
+        }
+        if (!isVec2(value)) {
+          players.runtimeError(
+            this.player[i],
+            this.id[i],
+            `${key} should be null or x,y but got ${value}`
+          )
+          return null
+        }
+        if (!Maps.inBounds(value, map)) {
+          players.runtimeError(
+            this.player[i],
+            this.id[i],
+            `${key} should be within the map [0 <= x < ${map.width}, 0 <= y < ${map.height}] but got ${value}`
+          )
+          return null
+        }
+        return value
       }
-      if (isVec2(mem.$tgt)) {
-        this.target[i] = mem.$tgt
-      } else if (mem.$tgt !== null) {
-        players.runtimeError(
-          this.player[i],
-          this.id[i],
-          `$tgt should be null or x,y but got ${mem.$tgt}`
-        )
-      }
+      this.destination[i] = readVec2(mem, "$dest")
+      this.target[i] = readVec2(mem, "$tgt")
     })
   }
 
@@ -544,16 +548,12 @@ export class Crits {
   // Update
 
   // Returns [speed, angularVelocity]
-  private planMove(
-    i: number,
-    dest: Vec2 | null,
-    pathfinder: Maps.Pathfinder
-  ): [number, number] {
-    if (dest === null) {
+  private planMove(i: number, pathfinder: Maps.Pathfinder): [number, number] {
+    if (this.destination[i] === null) {
       return [0, 0]
     }
     const position = this.position[i]
-    const pathDirection = pathfinder.direction(position, dest)
+    const pathDirection = pathfinder.direction(position, this.destination[i])
     if (pathDirection === Maps.NoDirection) {
       return [0, 0]
     }
@@ -598,11 +598,7 @@ export class Crits {
   }
 
   private move(i: number, pathfinder: Maps.Pathfinder): void {
-    const [speed, angularVelocity] = this.planMove(
-      i,
-      this.memory[i].$dest,
-      pathfinder
-    )
+    const [speed, angularVelocity] = this.planMove(i, pathfinder)
 
     // Execute the move
     this.angularVelocity[i] = angularVelocity
@@ -612,7 +608,10 @@ export class Crits {
       position[0] + S.dt * speed * Math.sin(this.angle[i]),
       position[1] + S.dt * speed * Math.cos(this.angle[i]),
     ]
-    if (this.collide(newPosition, i) === null) {
+    if (
+      this.collide(newPosition, i) === null &&
+      Maps.inBounds(newPosition, pathfinder.map)
+    ) {
       this.position[i] = newPosition
       this.speed[i] = speed
     } else {
@@ -622,7 +621,7 @@ export class Crits {
 
   private attack(i: number, bullets: Bullets): void {
     const position = this.position[i]
-    const target = this.memory[i].$tgt!
+    const target = this.target[i]!
 
     // Rotate to face the target
     this.speed[i] = 0
@@ -679,14 +678,12 @@ export class Crits {
   update(bullets: Bullets, pathfinder: Maps.Pathfinder): void {
     this.forEachIndex((i) => {
       this.attackRecharge[i] = Math.max(this.attackRecharge[i] - S.dt, 0)
-
-      const mem = this.memory[i]
       if (
-        mem.$tgt !== null &&
-        distance(this.position[i], mem.$tgt) < S.attackRange
+        this.target[i] !== null &&
+        distance(this.position[i], this.target[i]) < S.attackRange
       ) {
         this.attack(i, bullets)
-      } else if (mem.$dest !== null) {
+      } else if (this.destination[i] !== null) {
         this.move(i, pathfinder)
       } else {
         this.speed[i] = 0
@@ -738,7 +735,7 @@ export class Sim {
   }
 
   programUpdate(): void {
-    this.crits.programUpdate(this.players)
+    this.crits.programUpdate(this.players, this.level.map)
   }
 
   update(): void {

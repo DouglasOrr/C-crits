@@ -10,8 +10,13 @@ export enum Opcode {
   MUL,
   DIV,
   MOD,
+  RAND,
   // Arrays
   PUSH,
+  GET,
+  VLEN,
+  VDIR,
+  UNITV,
   // Control flow
   JMP,
   JEZ,
@@ -37,8 +42,13 @@ export const OpSpecs = new Map<string, (string | string[])[]>([
   ["MUL", BinaryArithmetic],
   ["DIV", BinaryArithmetic],
   ["MOD", BinaryArithmetic],
+  ["RAND", ["register"]],
   // Arrays
   ["PUSH", BinaryArithmetic],
+  ["GET", BinaryArithmetic],
+  ["VLEN", UnaryArithmetic],
+  ["VDIR", UnaryArithmetic],
+  ["UNITV", UnaryArithmetic],
   // Control flow
   ["JMP", [["register", "literal"]]],
   ["JEZ", UnaryControlFlow],
@@ -59,18 +69,21 @@ export function emptyProgram(): Program {
 export function run(
   program: Program,
   memory: Memory,
-  cycleLimit: number
+  cycleLimit: number,
+  startLabel: string | null
 ): void {
   const s = new State(program, memory)
   let cycleCount = 0
+  if (startLabel !== null && program.labels[startLabel] !== undefined) {
+    s.pc = program.labels[startLabel]
+  }
   while (s.pc < program.ops.length && cycleCount < cycleLimit) {
     cycleCount += 1
     s.op = program.ops[s.pc]
     switch (s.op.opcode) {
       // Arithmetic
       case Opcode.MOV:
-        store(s, load(s, s.op.args[0]), s.op.args[1])
-        s.pc += 1
+        runUnary(s, (_, a) => a)
         break
       case Opcode.ADD:
         runBinary(s, exprAdd)
@@ -87,9 +100,25 @@ export function run(
       case Opcode.MOD:
         runBinary(s, exprMod)
         break
+      case Opcode.RAND:
+        store(s, Math.random(), s.op.args[0])
+        s.pc += 1
+        break
       // Arrays
       case Opcode.PUSH:
         runBinary(s, exprPush)
+        break
+      case Opcode.GET:
+        runBinary(s, exprGet)
+        break
+      case Opcode.VLEN:
+        runUnary(s, exprVLen)
+        break
+      case Opcode.VDIR:
+        runUnary(s, exprVDir)
+        break
+      case Opcode.UNITV:
+        runUnary(s, exprUnitV)
         break
       // Control flow
       case Opcode.JMP:
@@ -162,6 +191,11 @@ function jumpTarget(s: State, arg: Arg): number {
   }
 }
 
+function runUnary(s: State, impl: (s: State, a: Value) => Value): void {
+  store(s, impl(s, load(s, s.op.args[0])), s.op.args[1])
+  s.pc += 1
+}
+
 function runBinary(
   s: State,
   impl: (s: State, a: Value, b: Value) => Value
@@ -180,6 +214,8 @@ function runConditionalJump(
     s.pc += 1
   }
 }
+
+// Arithmetic
 
 function exprAdd(s: State, a: Value, b: Value): Value {
   if (typeof a === "number" && typeof b === "number") {
@@ -232,6 +268,8 @@ function exprMod(s: State, a: Value, b: Value): Value {
   throw new RuntimeError(`Can't MOD ${a} ${b}`, s.op.line)
 }
 
+// Array
+
 function exprPush(s: State, a: Value, b: Value): Value {
   let aa: number[]
   if (Array.isArray(a)) {
@@ -257,6 +295,48 @@ function exprPush(s: State, a: Value, b: Value): Value {
   }
   return [...aa, ...bb]
 }
+
+function exprGet(s: State, array: Value, idx: Value): Value {
+  if (!Array.isArray(array)) {
+    throw new RuntimeError(`GET expected array, got ${array}`, s.op.line)
+  }
+  if (typeof idx !== "number") {
+    throw new RuntimeError(
+      `GET expected index to be a number, got ${idx}`,
+      s.op.line
+    )
+  }
+  if (idx < 0 || idx >= array.length) {
+    throw new RuntimeError(`Index ${idx} out of bounds`, s.op.line)
+  }
+  return array[idx]
+}
+
+function exprVLen(s: State, array: Value): Value {
+  if (!Array.isArray(array)) {
+    throw new RuntimeError(`VLEN expected array, got ${array}`, s.op.line)
+  }
+  return array.reduce((acc, x) => acc + x * x, 0) ** 0.5
+}
+
+function exprVDir(s: State, array: Value): Value {
+  if (!Array.isArray(array) || array.length !== 2) {
+    throw new RuntimeError(
+      `VDIR expected array of length 2, got ${array}`,
+      s.op.line
+    )
+  }
+  return Math.atan2(array[0], array[1])
+}
+
+function exprUnitV(s: State, direction: Value): Value {
+  if (typeof direction !== "number") {
+    throw new RuntimeError(`UNITV expected number, got ${direction}`, s.op.line)
+  }
+  return [Math.sin(direction), Math.cos(direction)]
+}
+
+// Control flow
 
 function exprEZ(s: State, a: Value): boolean {
   if (typeof a === "number") {

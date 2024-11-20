@@ -32,6 +32,10 @@ export const Directions: Vec2[] = [
 ]
 export const NoDirection = 255
 
+export function inBounds(p: Vec2, map: Map): boolean {
+  return 0 <= p[0] && p[0] < map.width && 0 <= p[1] && p[1] < map.height
+}
+
 export function fromImage(img: Image32): Map {
   const tiles = new Array(img.width * img.height).fill(Tile.Land)
   const basePosition: Vec2[] = []
