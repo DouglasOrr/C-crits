@@ -3,21 +3,47 @@
 export type Value = null | number | string | number[]
 export type Memory = { [key: string]: Value }
 export enum Opcode {
+  // Arithmetic
   MOV,
   ADD,
   SUB,
   MUL,
   DIV,
+  MOD,
+  // Arrays
+  PUSH,
+  // Control flow
+  JMP,
+  JEZ,
+  JLZ,
+  JGZ,
   RET,
 }
-const UnaryOp = [["register", "literal"], "register"]
-const BinaryOp = [["register", "literal"], ["register", "literal"], "register"]
+const UnaryArithmetic = [["register", "literal"], "register"]
+const BinaryArithmetic = [
+  ["register", "literal"],
+  ["register", "literal"],
+  "register",
+]
+const UnaryControlFlow = [
+  ["register", "literal"],
+  ["register", "literal"],
+]
 export const OpSpecs = new Map<string, (string | string[])[]>([
-  ["MOV", UnaryOp],
-  ["ADD", BinaryOp],
-  ["SUB", BinaryOp],
-  ["MUL", BinaryOp],
-  ["DIV", BinaryOp],
+  // Arithmetic
+  ["MOV", UnaryArithmetic],
+  ["ADD", BinaryArithmetic],
+  ["SUB", BinaryArithmetic],
+  ["MUL", BinaryArithmetic],
+  ["DIV", BinaryArithmetic],
+  ["MOD", BinaryArithmetic],
+  // Arrays
+  ["PUSH", BinaryArithmetic],
+  // Control flow
+  ["JMP", [["register", "literal"]]],
+  ["JEZ", UnaryControlFlow],
+  ["JLZ", UnaryControlFlow],
+  ["JGZ", UnaryControlFlow],
   ["RET", []],
 ])
 export type Arg = { register: string } | { literal: Value }
@@ -30,28 +56,59 @@ export function emptyProgram(): Program {
 
 // Execution
 
-export function run(program: Program, memory: Memory): void {
+export function run(
+  program: Program,
+  memory: Memory,
+  cycleLimit: number
+): void {
   const s = new State(program, memory)
-  for (const op of program.ops) {
-    s.op = op
-    switch (op.opcode) {
+  let cycleCount = 0
+  while (s.pc < program.ops.length && cycleCount < cycleLimit) {
+    cycleCount += 1
+    s.op = program.ops[s.pc]
+    switch (s.op.opcode) {
+      // Arithmetic
       case Opcode.MOV:
-        store(s, load(s, op.args[0]), op.args[1])
+        store(s, load(s, s.op.args[0]), s.op.args[1])
+        s.pc += 1
         break
       case Opcode.ADD:
-        store(s, opAdd(s, load(s, op.args[0]), load(s, op.args[1])), op.args[2])
+        runBinary(s, exprAdd)
         break
       case Opcode.SUB:
-        store(s, opSub(s, load(s, op.args[0]), load(s, op.args[1])), op.args[2])
+        runBinary(s, exprSub)
         break
       case Opcode.MUL:
-        store(s, opMul(s, load(s, op.args[0]), load(s, op.args[1])), op.args[2])
+        runBinary(s, exprMul)
         break
       case Opcode.DIV:
-        store(s, opDiv(s, load(s, op.args[0]), load(s, op.args[1])), op.args[2])
+        runBinary(s, exprDiv)
+        break
+      case Opcode.MOD:
+        runBinary(s, exprMod)
+        break
+      // Arrays
+      case Opcode.PUSH:
+        runBinary(s, exprPush)
+        break
+      // Control flow
+      case Opcode.JMP:
+        s.pc = jumpTarget(s, s.op.args[0])
+        break
+      case Opcode.JEZ:
+        runConditionalJump(s, exprEZ)
+        break
+      case Opcode.JLZ:
+        runConditionalJump(s, exprLZ)
+        break
+      case Opcode.JGZ:
+        runConditionalJump(s, exprGZ)
         break
       case Opcode.RET:
-        return
+        s.pc = program.ops.length
+        break
+      default:
+        throw new AssertionError()
     }
   }
 }
@@ -65,7 +122,9 @@ export class RuntimeError extends Error {
 export class AssertionError extends Error {}
 
 class State {
+  pc: number = 0
   op: Op = { opcode: Opcode.RET, args: [], line: -1 }
+
   constructor(public program: Program, public memory: Memory) {}
 }
 
@@ -87,17 +146,53 @@ function store(s: State, value: Value, dest: Arg): void {
   }
 }
 
-function opAdd(s: State, a: Value, b: Value): Value {
+function jumpTarget(s: State, arg: Arg): number {
+  const value = load(s, arg)
+  if (typeof value === "string") {
+    const line = s.program.labels[value]
+    if (line === undefined) {
+      throw new RuntimeError(`Unknown label ${value}`, s.op.line)
+    }
+    return line
+  } else {
+    throw new RuntimeError(
+      `Can't ${Opcode[s.op.opcode]} to ${value}`,
+      s.op.line
+    )
+  }
+}
+
+function runBinary(
+  s: State,
+  impl: (s: State, a: Value, b: Value) => Value
+): void {
+  store(s, impl(s, load(s, s.op.args[0]), load(s, s.op.args[1])), s.op.args[2])
+  s.pc += 1
+}
+
+function runConditionalJump(
+  s: State,
+  test: (s: State, a: Value) => boolean
+): void {
+  if (test(s, load(s, s.op.args[0]))) {
+    s.pc = jumpTarget(s, s.op.args[1])
+  } else {
+    s.pc += 1
+  }
+}
+
+function exprAdd(s: State, a: Value, b: Value): Value {
   if (typeof a === "number" && typeof b === "number") {
     return a + b
   }
+  // TODO broadcasting?
   if (Array.isArray(a) && Array.isArray(b) && a.length === b.length) {
     return a.map((_, i) => (a[i] as number) + (b[i] as number))
   }
   throw new RuntimeError(`Can't ADD ${a} ${b}`, s.op.line)
 }
 
-function opSub(s: State, a: Value, b: Value): Value {
+function exprSub(s: State, a: Value, b: Value): Value {
   if (typeof a === "number" && typeof b === "number") {
     return a - b
   }
@@ -107,24 +202,84 @@ function opSub(s: State, a: Value, b: Value): Value {
   throw new RuntimeError(`Can't SUB ${a} ${b}`, s.op.line)
 }
 
-function opMul(s: State, a: Value, b: Value): Value {
+function exprMul(s: State, a: Value, b: Value): Value {
   if (typeof a === "number" && typeof b === "number") {
     return a * b
   }
   if (Array.isArray(a) && Array.isArray(b) && a.length === b.length) {
     return a.map((_, i) => (a[i] as number) * (b[i] as number))
   }
-  throw new RuntimeError(`Can't SUB ${a} ${b}`, s.op.line)
+  throw new RuntimeError(`Can't MUL ${a} ${b}`, s.op.line)
 }
 
-function opDiv(s: State, a: Value, b: Value): Value {
+function exprDiv(s: State, a: Value, b: Value): Value {
   if (typeof a === "number" && typeof b === "number") {
     return a / b
   }
   if (Array.isArray(a) && Array.isArray(b) && a.length === b.length) {
     return a.map((_, i) => (a[i] as number) / (b[i] as number))
   }
-  throw new RuntimeError(`Can't SUB ${a} ${b}`, s.op.line)
+  throw new RuntimeError(`Can't DIV ${a} ${b}`, s.op.line)
+}
+
+function exprMod(s: State, a: Value, b: Value): Value {
+  if (typeof a === "number" && typeof b === "number") {
+    return a % b
+  }
+  if (Array.isArray(a) && Array.isArray(b) && a.length === b.length) {
+    return a.map((_, i) => (a[i] as number) % (b[i] as number))
+  }
+  throw new RuntimeError(`Can't MOD ${a} ${b}`, s.op.line)
+}
+
+function exprPush(s: State, a: Value, b: Value): Value {
+  let aa: number[]
+  if (Array.isArray(a)) {
+    aa = a
+  } else if (typeof a === "number") {
+    aa = [a]
+  } else {
+    throw new RuntimeError(
+      `Can't PUSH ${a}, expected array or number`,
+      s.op.line
+    )
+  }
+  let bb: number[]
+  if (Array.isArray(b)) {
+    bb = b
+  } else if (typeof b === "number") {
+    bb = [b]
+  } else {
+    throw new RuntimeError(
+      `Can't PUSH ${b}, expected array or number`,
+      s.op.line
+    )
+  }
+  return [...aa, ...bb]
+}
+
+function exprEZ(s: State, a: Value): boolean {
+  if (typeof a === "number") {
+    return a === 0
+  }
+  if (Array.isArray(a)) {
+    return a.every((x) => x === 0)
+  }
+  throw new RuntimeError(`Can't compare ${a} to 0`, s.op.line)
+}
+
+function exprLZ(s: State, a: Value): boolean {
+  if (typeof a === "number") {
+    return a < 0
+  }
+  throw new RuntimeError(`Can't compare ${a} to 0`, s.op.line)
+}
+
+function exprGZ(s: State, a: Value): boolean {
+  if (typeof a === "number") {
+    return a > 0
+  }
+  throw new RuntimeError(`Can't compare ${a} to 0`, s.op.line)
 }
 
 // Parsing

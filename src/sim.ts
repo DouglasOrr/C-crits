@@ -18,6 +18,7 @@ export const S = {
   maxCritters: 1000, // #
   maxBullets: 1000, // #
   maxRuntimeErrors: 10, // #
+  cycleLimit: 100, // #
 
   // Movement
   speed: 4, // m/s
@@ -435,7 +436,8 @@ export class Crits {
       try {
         Crasm.run(
           players.program[this.player[i]],
-          mem as unknown as Crasm.Memory
+          mem as unknown as Crasm.Memory,
+          S.cycleLimit
         )
       } catch (error) {
         if (error instanceof Crasm.RuntimeError) {

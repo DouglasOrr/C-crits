@@ -52,7 +52,7 @@ A literal can be:
 - A label, such as `@return_home`.
 - The special literal `null`.
 
-## Commands
+## Arithmetic instructions
 
 **`mov`**
 
@@ -61,6 +61,28 @@ Copy the value of the first argument to the second argument.
 ```
 mov 1,2 $dest ; copy the literal `[1,2]` to the register `dest`
 ```
+
+**`add`**, **`sub`**, **`mul`**, **`div`**, **`mod`**
+
+Add/subtract/multiply/divide/modulo the number or vector in the first argument with the second argument.
+
+```
+add 1,2 $x $y    ; add `[1,2]` to $x and store the result in $y
+sub $x 3.45 $x   ; subtract 3.45 from $x$ and store the result back in $x
+```
+
+## Array instructions
+
+**`push`**
+
+Concatenate or append the second argument to the first argument.
+
+```
+push 1 2 $x          ; $x contains 1,2
+push 10,20 30,40 $x  ; $x contains 10,20,30,40
+```
+
+## Control flow instructions
 
 **`ret`**
 
@@ -71,13 +93,21 @@ ret
 ; nothing executed after `ret`
 ```
 
-**`add`**, **`sub`**, **`mul`**, **`div`**
+**`jmp`**
 
-Add/subtract/multiply/divide the number or vector in the first argument with the second argument.
+Jump to the label determined by the first argument.
 
 ```
-add 1,2 $x $y    ; add `[1,2]` to $x and store the result in $y
-sub $x 3.45 $x   ; subtract 3.45 from $x$ and store the result back in $x
+jmp @return_home   ; jump to the instruction following `@return_home`
+jmp $nextLabel     ; jump to the label stored in $nextLabel
+```
+
+**`jez`**, **`jlz`**, **`jgz`**
+
+Conditional jump based on the value of the first argument. The second argument is the label to jump to. If the jump isn't taken, continue to the next instruction.
+
+```
+jez $patience @return_home  ; jump to `@return_home` if $patience is 0 (or 0,0)
 ```
 
 ## Special registers

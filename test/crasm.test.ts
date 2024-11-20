@@ -86,6 +86,6 @@ test("parse--run", () => {
     ret
   `)
   const memory = {} as Memory
-  run(program, memory)
+  run(program, memory, 100)
   expect(memory["$dest"]).toEqual([12, 50])
 })
