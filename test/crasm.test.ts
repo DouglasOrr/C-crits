@@ -81,7 +81,7 @@ describe("parse", () => {
 
 test("parse--run", () => {
   const program = parse(`
-    mov 12,50 $tmp
+    add 2,0 10,50 $tmp
     mov $tmp $dest
     ret
   `)

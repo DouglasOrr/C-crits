@@ -144,14 +144,19 @@ async function load(page: Page) {
   ]
 
   // Render and physics loop
+  let programUpdateTime: number | undefined = undefined
   let updateTime: number | undefined = undefined
   let animationTime: number | undefined = undefined
   const fpsCounter = createFpsCounter(page)
   renderer.setAnimationLoop((time: number) => {
     time /= 1000
-    if (updateTime === undefined) {
-      updateTime = Sim.S.dt * Math.floor(time / Sim.S.dt)
+    if (updateTime === undefined || programUpdateTime === undefined) {
+      programUpdateTime = updateTime = Sim.S.dt * Math.floor(time / Sim.S.dt)
     } else {
+      while (programUpdateTime < time) {
+        sim.programUpdate()
+        programUpdateTime += Sim.S.dtProgram
+      }
       while (updateTime < time) {
         sim.update()
         updateTime += Sim.S.dt

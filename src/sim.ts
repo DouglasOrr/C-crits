@@ -3,6 +3,7 @@ import {
   angleBetweenAngle,
   clamp,
   distance,
+  isVec2,
   v2Add,
   v2Equal,
   v2Floor,
@@ -12,9 +13,11 @@ import * as Maps from "./maps"
 
 export const S = {
   dt: 1 / 200, // s
+  dtProgram: 1 / 10, // s
   radius: 0.25, // m
   maxCritters: 1000, // #
   maxBullets: 1000, // #
+  maxRuntimeErrors: 10, // #
 
   // Movement
   speed: 4, // m/s
@@ -173,7 +176,7 @@ export class Bases {
     })
   }
 
-  spawnCritter(base: number, crits: Crits): void {
+  spawnCritter(base: number, crits: Crits, players: Players): void {
     const basePosition = this.position[base]
     const cosA = Math.cos(this.direction[base])
     const sinA = Math.sin(this.direction[base])
@@ -194,7 +197,8 @@ export class Bases {
             crits.spawn(
               this.owner[base],
               position,
-              Math.atan2(delta[0], delta[1])
+              Math.atan2(delta[0], delta[1]),
+              players
             )
             return
           }
@@ -205,7 +209,7 @@ export class Bases {
 
   // Update
 
-  private respawn(base: number, crits: Crits): void {
+  private respawn(base: number, crits: Crits, players: Players): void {
     this.spawnRecharge[base] -= S.dt
     if (this.spawnRecharge[base] <= 0) {
       const owner = this.owner[base]
@@ -215,7 +219,7 @@ export class Bases {
         0
       )
       if (count < allowedCount) {
-        this.spawnCritter(base, crits)
+        this.spawnCritter(base, crits, players)
         this.spawnRecharge[base] = S.spawnTime
       }
     }
@@ -308,9 +312,9 @@ export class Bases {
     }
   }
 
-  update(crits: Crits, healBullets: Bullets): void {
+  update(crits: Crits, healBullets: Bullets, players: Players): void {
     this.forEachIndex((i) => {
-      this.respawn(i, crits)
+      this.respawn(i, crits, players)
       this.fireHealBullets(i, crits, healBullets)
       if (Bases.isNeutralBase(i)) {
         this.capture(i, crits)
@@ -321,9 +325,13 @@ export class Bases {
 }
 
 export class Players {
+  nextId: number[]
   program: Crasm.Program[]
+  errorsSinceLastLoad: number[]
 
   constructor(n: number, private listener: EventListener) {
+    this.nextId = Array(n).fill(0)
+    this.errorsSinceLastLoad = Array(n).fill(0)
     this.program = Array(n).fill(Crasm.emptyProgram())
   }
 
@@ -341,6 +349,7 @@ export class Players {
     try {
       this.program[0] = Crasm.parse(program)
       this.listener(Event.ProgramLoad)
+      this.errorsSinceLastLoad[0] = 0
     } catch (error) {
       if (error instanceof Crasm.ParseError) {
         this.listener(Event.ProgramError, error)
@@ -349,9 +358,28 @@ export class Players {
       }
     }
   }
+
+  runtimeError(
+    player: number,
+    critId: number,
+    message: string,
+    line?: number
+  ): void {
+    if (this.errorsSinceLastLoad[player]++ < S.maxRuntimeErrors) {
+      let prefix = player === 0 ? "" : `Player #${player} `
+      if (line !== undefined) {
+        prefix = `${prefix}L${line} `
+      }
+      console.error(`${prefix}Critter #${critId} runtime error - ${message}`)
+    }
+  }
 }
 
 class Memory {
+  // Inputs
+  $id: number = -1
+  $pos: Vec2 = [0, 0]
+  // Outputs
   $dest: Vec2 | null = null
   $tgt: Vec2 | null = null
 }
@@ -362,7 +390,10 @@ class Memory {
 //   player >= 0, health == 0, spawnTimer > 0  : spawning
 //   player >= 0, health == 0, spawnTimer == 0 : dying
 export class Crits {
+  // Identity
+  id: number[] = Array(S.maxCritters).fill(-1)
   player: number[] = Array(S.maxCritters).fill(-1)
+  // State
   position: Vec2[] = Array.from({ length: S.maxCritters }, () => [0, 0])
   speed: number[] = Array(S.maxCritters).fill(0)
   angle: number[] = Array(S.maxCritters).fill(0)
@@ -371,7 +402,10 @@ export class Crits {
   health: number[] = Array(S.maxCritters).fill(0)
   spawnTimer: number[] = Array(S.maxCritters).fill(0)
   deathTimer: number[] = Array(S.maxCritters).fill(0)
+  // Control
   memory: Memory[] = Array.from({ length: S.maxCritters }, () => new Memory())
+  destination: (Vec2 | null)[] = Array(S.maxCritters).fill(null)
+  target: (Vec2 | null)[] = Array(S.maxCritters).fill(null)
 
   constructor(private listener: EventListener) {}
 
@@ -387,11 +421,63 @@ export class Crits {
     }
   }
 
+  // Program
+
+  programUpdate(players: Players): void {
+    this.forEachIndex((i) => {
+      const mem = this.memory[i]
+
+      // 1. Prepare the input state
+      mem.$id = this.id[i]
+      mem.$pos = [...this.position[i]]
+
+      // 2. Run the user program
+      try {
+        Crasm.run(
+          players.program[this.player[i]],
+          mem as unknown as Crasm.Memory
+        )
+      } catch (error) {
+        if (error instanceof Crasm.RuntimeError) {
+          players.runtimeError(
+            this.player[i],
+            this.id[i],
+            error.message,
+            error.line
+          )
+        } else {
+          throw error
+        }
+      }
+
+      // 3. Copy output memory to command state
+      if (isVec2(mem.$dest)) {
+        this.destination[i] = mem.$dest
+      } else if (mem.$dest !== null) {
+        players.runtimeError(
+          this.player[i],
+          this.id[i],
+          `$dst should be null or x,y but got ${mem.$dest}`
+        )
+      }
+      if (isVec2(mem.$tgt)) {
+        this.target[i] = mem.$tgt
+      } else if (mem.$tgt !== null) {
+        players.runtimeError(
+          this.player[i],
+          this.id[i],
+          `$tgt should be null or x,y but got ${mem.$tgt}`
+        )
+      }
+    })
+  }
+
   // General
 
-  spawn(player: number, position: Vec2, angle: number): void {
+  spawn(player: number, position: Vec2, angle: number, players: Players): void {
     const i = this.player.indexOf(-1)
     if (i !== -1) {
+      this.id[i] = players.nextId[player]++
       this.player[i] = player
       this.position[i][0] = position[0]
       this.position[i][1] = position[1]
@@ -403,6 +489,8 @@ export class Crits {
       this.spawnTimer[i] = S.dt
       this.deathTimer[i] = 0
       this.memory[i] = new Memory()
+      this.destination[i] = null
+      this.target[i] = null
       this.listener(Event.CritSpawn)
     }
   }
@@ -586,19 +674,11 @@ export class Crits {
     }
   }
 
-  update(
-    bullets: Bullets,
-    players: Players,
-    pathfinder: Maps.Pathfinder
-  ): void {
+  update(bullets: Bullets, pathfinder: Maps.Pathfinder): void {
     this.forEachIndex((i) => {
       this.attackRecharge[i] = Math.max(this.attackRecharge[i] - S.dt, 0)
 
-      // Control
       const mem = this.memory[i]
-      Crasm.run(players.program[this.player[i]], mem as unknown as Crasm.Memory)
-
-      // Execution
       if (
         mem.$tgt !== null &&
         distance(this.position[i], mem.$tgt) < S.attackRange
@@ -637,7 +717,7 @@ export class Sim {
     this.bases = new Bases(level, listener)
     for (const [player, count] of level.initialCritters.entries()) {
       for (let i = 0; i < count; ++i) {
-        this.bases.spawnCritter(player, this.crits)
+        this.bases.spawnCritter(player, this.crits, this.players)
       }
     }
   }
@@ -655,14 +735,18 @@ export class Sim {
     }
   }
 
+  programUpdate(): void {
+    this.crits.programUpdate(this.players)
+  }
+
   update(): void {
     this.bullets.update((p: Vec2) => {
       this.bases.explode(p)
       this.crits.explode(p)
     })
     this.healBullets.update((p: Vec2) => this.crits.heal(p))
-    this.crits.update(this.bullets, this.players, this.pathfinder)
-    this.bases.update(this.crits, this.healBullets)
+    this.crits.update(this.bullets, this.pathfinder)
+    this.bases.update(this.crits, this.healBullets, this.players)
     this.updateWinner()
   }
 }

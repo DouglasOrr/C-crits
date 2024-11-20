@@ -1,5 +1,14 @@
 export type Vec2 = [number, number]
 
+export function isVec2(a: unknown): a is Vec2 {
+  return (
+    Array.isArray(a) &&
+    a.length === 2 &&
+    typeof a[0] === "number" &&
+    typeof a[1] === "number"
+  )
+}
+
 export function v2Equal(a: Vec2, b: Vec2): boolean {
   return a[0] === b[0] && a[1] === b[1]
 }

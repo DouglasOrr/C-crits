@@ -4,10 +4,20 @@ export type Value = null | number | string | number[]
 export type Memory = { [key: string]: Value }
 export enum Opcode {
   MOV,
+  ADD,
+  SUB,
+  MUL,
+  DIV,
   RET,
 }
+const UnaryOp = [["register", "literal"], "register"]
+const BinaryOp = [["register", "literal"], ["register", "literal"], "register"]
 export const OpSpecs = new Map<string, (string | string[])[]>([
-  ["MOV", [["register", "literal"], "register"]],
+  ["MOV", UnaryOp],
+  ["ADD", BinaryOp],
+  ["SUB", BinaryOp],
+  ["MUL", BinaryOp],
+  ["DIV", BinaryOp],
   ["RET", []],
 ])
 export type Arg = { register: string } | { literal: Value }
@@ -20,33 +30,101 @@ export function emptyProgram(): Program {
 
 // Execution
 
-function load(memory: Memory, arg: Arg): Value {
-  if ("register" in arg) {
-    return memory[arg.register]
-  }
-  if ("literal" in arg) {
-    return arg.literal
-  }
-  throw new Error(`Unexpected arg: ${arg}`)
-}
-
-function destRegister(arg: Arg): string {
-  if ("register" in arg) {
-    return arg.register
-  }
-  throw new Error(`Expected destination to be a register: ${arg}`)
-}
-
 export function run(program: Program, memory: Memory): void {
+  const s = new State(program, memory)
   for (const op of program.ops) {
+    s.op = op
     switch (op.opcode) {
       case Opcode.MOV:
-        memory[destRegister(op.args[1])] = load(memory, op.args[0])
+        store(s, load(s, op.args[0]), op.args[1])
+        break
+      case Opcode.ADD:
+        store(s, opAdd(s, load(s, op.args[0]), load(s, op.args[1])), op.args[2])
+        break
+      case Opcode.SUB:
+        store(s, opSub(s, load(s, op.args[0]), load(s, op.args[1])), op.args[2])
+        break
+      case Opcode.MUL:
+        store(s, opMul(s, load(s, op.args[0]), load(s, op.args[1])), op.args[2])
+        break
+      case Opcode.DIV:
+        store(s, opDiv(s, load(s, op.args[0]), load(s, op.args[1])), op.args[2])
         break
       case Opcode.RET:
         return
     }
   }
+}
+
+export class RuntimeError extends Error {
+  constructor(message: string, public line: number) {
+    super(message)
+  }
+}
+
+export class AssertionError extends Error {}
+
+class State {
+  op: Op = { opcode: Opcode.RET, args: [], line: -1 }
+  constructor(public program: Program, public memory: Memory) {}
+}
+
+function load(s: State, arg: Arg): Value {
+  if ("register" in arg) {
+    return s.memory[arg.register]
+  }
+  if ("literal" in arg) {
+    return arg.literal
+  }
+  throw new AssertionError()
+}
+
+function store(s: State, value: Value, dest: Arg): void {
+  if ("register" in dest) {
+    s.memory[dest.register] = value
+  } else {
+    throw new AssertionError()
+  }
+}
+
+function opAdd(s: State, a: Value, b: Value): Value {
+  if (typeof a === "number" && typeof b === "number") {
+    return a + b
+  }
+  if (Array.isArray(a) && Array.isArray(b) && a.length === b.length) {
+    return a.map((_, i) => (a[i] as number) + (b[i] as number))
+  }
+  throw new RuntimeError(`Can't ADD ${a} ${b}`, s.op.line)
+}
+
+function opSub(s: State, a: Value, b: Value): Value {
+  if (typeof a === "number" && typeof b === "number") {
+    return a - b
+  }
+  if (Array.isArray(a) && Array.isArray(b) && a.length === b.length) {
+    return a.map((_, i) => (a[i] as number) - (b[i] as number))
+  }
+  throw new RuntimeError(`Can't SUB ${a} ${b}`, s.op.line)
+}
+
+function opMul(s: State, a: Value, b: Value): Value {
+  if (typeof a === "number" && typeof b === "number") {
+    return a * b
+  }
+  if (Array.isArray(a) && Array.isArray(b) && a.length === b.length) {
+    return a.map((_, i) => (a[i] as number) * (b[i] as number))
+  }
+  throw new RuntimeError(`Can't SUB ${a} ${b}`, s.op.line)
+}
+
+function opDiv(s: State, a: Value, b: Value): Value {
+  if (typeof a === "number" && typeof b === "number") {
+    return a / b
+  }
+  if (Array.isArray(a) && Array.isArray(b) && a.length === b.length) {
+    return a.map((_, i) => (a[i] as number) / (b[i] as number))
+  }
+  throw new RuntimeError(`Can't SUB ${a} ${b}`, s.op.line)
 }
 
 // Parsing

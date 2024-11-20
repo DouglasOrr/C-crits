@@ -27,7 +27,7 @@ mov 1,2 $dest ; set dest to [1, 2]
 
 **Statements**
 
-A statement is a instruction followed by arguments. Each argument can be a literal or a register reference.
+A statement is a instruction followed by arguments. Each argument can be a **literal** or a **register** reference.
 
 ```
 mov 1,2 $dest  ; instruction `mov`, literal `[1,2]`, register `dest`
@@ -48,7 +48,7 @@ ret
 A literal can be:
 
 - A number, such as `1` or `2.3`.
-- A list of numbers separated by `,` and with an optional trailing `,`, such as `1,2`, `1,` (one element) or `,` (empty list).
+- An array of numbers separated by `,` and with an optional trailing `,`, such as `1,2`, `1,` (one element) or `,` (empty array).
 - A label, such as `@return_home`.
 - The special literal `null`.
 
@@ -71,8 +71,20 @@ ret
 ; nothing executed after `ret`
 ```
 
+**`add`**, **`sub`**, **`mul`**, **`div`**
+
+Add/subtract/multiply/divide the number or vector in the first argument with the second argument.
+
+```
+add 1,2 $x $y    ; add `[1,2]` to $x and store the result in $y
+sub $x 3.45 $x   ; subtract 3.45 from $x$ and store the result back in $x
+```
+
 ## Special registers
 
-**`$tgt`** (R/W) - set to non-null to attack that position, if currently in range (this takes precedence over `$dest`)
-
-**`$dest`** (R/W) - set to non-null to move to that position
+| Register    | Direction | Type            | Description                                                                                         |
+| ----------- | --------- | --------------- | --------------------------------------------------------------------------------------------------- |
+| **`$id`**   | R         | `number`        | critter ID (unique, starting from 0)                                                                |
+| **`$pos`**  | R         | `number`        | current critter position                                                                            |
+| **`$tgt`**  | R/W       | `x,y` \| `null` | set to non-null to attack that position, if currently in range (this takes precedence over `$dest`) |
+| **`$dest`** | R/W       | `x,y` \| `null` | set to non-null to move to that position                                                            |
