@@ -14,7 +14,7 @@ import * as Maps from "./maps"
 export const S = {
   dt: 1 / 200, // s
   dtProgram: 1 / 10, // s
-  radius: 0.25, // m
+  radius: 0.2, // m
   maxCritters: 1000, // #
   maxBullets: 1000, // #
   maxRuntimeErrors: 10, // #
@@ -39,6 +39,7 @@ export const S = {
 
   // Base
   spawnTime: 2, // s
+  spawnRingRatio: 1.5, // #
   healRange: 3, // m
   healRadius: 0.3, // m
   healTime: 0.25, // s
@@ -49,10 +50,11 @@ export const S = {
   captureTime: 7, // s
   captureMultiple: 4, // #
 
-  // Animations
+  // Animations & UI
   critterSpawnTime: 0.5, // s
   critterDeathTime: 0.5, // s
   baseDeathTime: 4.0, // s
+  selectionRadiusRatio: 2.0, // #
 }
 
 export enum Event {
@@ -64,6 +66,7 @@ export enum Event {
   BaseCapture,
   ProgramLoad,
   ProgramError,
+  ProgramDebug,
 }
 export type EventListener = (event: Event, data?: any) => void
 
@@ -182,8 +185,9 @@ export class Bases {
     const cosA = Math.cos(this.direction[base])
     const sinA = Math.sin(this.direction[base])
 
-    for (let radius = 0.5 + S.radius; ; radius += 2 * S.radius) {
-      for (let offset = 0; offset <= 4 * radius; offset += S.radius) {
+    const R = S.spawnRingRatio * S.radius
+    for (let radius = 0.5 + R; ; radius += 2 * R) {
+      for (let offset = 0; offset <= 4 * radius; offset += R) {
         for (let sign = -1; sign <= 1; sign += 2) {
           const d0: Vec2 = [
             sign * Math.min(radius, offset, 4 * radius - offset),
@@ -329,6 +333,9 @@ export class Players {
   nextId: number[]
   program: Crasm.Program[]
   errorsSinceLastLoad: number[]
+  // Selection (debug)
+  userSelection: number | null = null
+  userSelectionId: number | null = null
 
   constructor(n: number, private listener: EventListener) {
     this.nextId = Array(n).fill(0)
@@ -346,7 +353,7 @@ export class Players {
     }
   }
 
-  loadProgram(program: string): void {
+  userLoadProgram(program: string): void {
     try {
       this.program[0] = Crasm.parse(program)
       this.listener(Event.ProgramLoad)
@@ -360,19 +367,50 @@ export class Players {
     }
   }
 
-  runtimeError(
-    player: number,
-    critId: number,
-    message: string,
-    line?: number
-  ): void {
-    if (this.errorsSinceLastLoad[player]++ < S.maxRuntimeErrors) {
-      let prefix = player === 0 ? "" : `Player #${player} `
-      if (line !== undefined) {
-        prefix = `${prefix}L${line} `
-      }
-      console.error(`${prefix}Critter #${critId} runtime error - ${message}`)
+  userSelect(position: Vec2, crits: Crits): void {
+    this.userSelection = crits.selectAtPosition(/*player=*/ 0, position)
+    if (this.userSelection === null) {
+      this.userSelectionId = null
+      this.listener(Event.ProgramDebug, null)
+    } else {
+      this.userSelectionId = crits.id[this.userSelection]
+      this.listener(Event.ProgramDebug, {
+        mem: crits.memory[this.userSelection],
+        error: crits.error[this.userSelection],
+      })
     }
+  }
+
+  programUpdate(crits: Crits): void {
+    // Selection (debug)
+    if (this.userSelection !== null) {
+      if (this.userSelectionId !== crits.id[this.userSelection]) {
+        this.userSelection = null
+        this.userSelectionId = null
+        this.listener(Event.ProgramDebug, null)
+      } else {
+        this.listener(Event.ProgramDebug, {
+          mem: crits.memory[this.userSelection],
+          error: crits.error[this.userSelection],
+        })
+      }
+    }
+    // Console reporting
+    crits.forEachIndex((i) => {
+      const error = crits.error[i]
+      if (error !== null) {
+        const player = crits.player[i]
+        if (this.errorsSinceLastLoad[player]++ < S.maxRuntimeErrors) {
+          let prefix = player === 0 ? "" : `Player #${player} `
+          if (error.line !== undefined) {
+            prefix = `${prefix}L${error.line} `
+          }
+          console.error(
+            `${prefix}Critter #${crits.id[i]} runtime error - ${error.message}`
+          )
+        }
+      }
+    })
   }
 }
 
@@ -408,6 +446,9 @@ export class Crits {
   memory: Memory[] = Array.from({ length: S.maxCritters }, () => new Memory())
   destination: (Vec2 | null)[] = Array(S.maxCritters).fill(null)
   target: (Vec2 | null)[] = Array(S.maxCritters).fill(null)
+  error: ({ message: string; line?: number } | null)[] = Array(
+    S.maxCritters
+  ).fill(null)
 
   constructor(private listener: EventListener) {}
 
@@ -428,6 +469,7 @@ export class Crits {
   programUpdate(players: Players, map: Maps.Map): void {
     this.forEachIndex((i) => {
       const mem = this.memory[i]
+      this.error[i] = null
 
       // 1. Prepare the input state
       mem.$id = this.id[i]
@@ -443,38 +485,38 @@ export class Crits {
         )
       } catch (e) {
         if (e instanceof Crasm.RuntimeError) {
-          players.runtimeError(this.player[i], this.id[i], e.message, e.line)
+          this.error[i] = e
         } else {
           throw e
         }
       }
 
       // 3. Copy output memory to command state
-      const readVec2 = (mem: Memory, key: keyof Memory): Vec2 | null => {
-        const value = mem[key]
-        if (value === null) {
-          return null
+      if (this.error[i] === null) {
+        const readVec2 = (mem: Memory, key: keyof Memory): Vec2 | null => {
+          const value = mem[key]
+          if (value === null) {
+            return null
+          }
+          if (!isVec2(value)) {
+            this.error[i] = {
+              message: `${key} should be null or x,y but got ${value}`,
+            }
+            return null
+          }
+          if (!Maps.inBounds(value, map)) {
+            this.error[i] = {
+              message:
+                `${key} should be within the map [0 <= x < ${map.width}, 0 <= y < ${map.height}]` +
+                ` but got ${value}`,
+            }
+            return null
+          }
+          return value
         }
-        if (!isVec2(value)) {
-          players.runtimeError(
-            this.player[i],
-            this.id[i],
-            `${key} should be null or x,y but got ${value}`
-          )
-          return null
-        }
-        if (!Maps.inBounds(value, map)) {
-          players.runtimeError(
-            this.player[i],
-            this.id[i],
-            `${key} should be within the map [0 <= x < ${map.width}, 0 <= y < ${map.height}] but got ${value}`
-          )
-          return null
-        }
-        return value
+        this.destination[i] = readVec2(mem, "$dest")
+        this.target[i] = readVec2(mem, "$tgt")
       }
-      this.destination[i] = readVec2(mem, "$dest")
-      this.target[i] = readVec2(mem, "$tgt")
     })
   }
 
@@ -497,6 +539,7 @@ export class Crits {
       this.memory[i] = new Memory()
       this.destination[i] = null
       this.target[i] = null
+      this.error[i] = null
       this.listener(Event.CritSpawn)
     }
   }
@@ -543,6 +586,21 @@ export class Crits {
         this.listener(Event.Heal)
       }
     })
+  }
+
+  selectAtPosition(player: number, position: Vec2): number | null {
+    let minDistance = S.selectionRadiusRatio * S.radius
+    let minIndex = null
+    for (let i = 0; i < this.position.length; ++i) {
+      if (this.player[i] === player) {
+        const d = distance(this.position[i], position)
+        if (d < minDistance) {
+          minDistance = d
+          minIndex = i
+        }
+      }
+    }
+    return minIndex
   }
 
   // Update
@@ -677,17 +735,19 @@ export class Crits {
 
   update(bullets: Bullets, pathfinder: Maps.Pathfinder): void {
     this.forEachIndex((i) => {
-      this.attackRecharge[i] = Math.max(this.attackRecharge[i] - S.dt, 0)
-      if (
-        this.target[i] !== null &&
-        distance(this.position[i], this.target[i]) < S.attackRange
-      ) {
-        this.attack(i, bullets)
-      } else if (this.destination[i] !== null) {
-        this.move(i, pathfinder)
-      } else {
-        this.speed[i] = 0
-        this.angularVelocity[i] = 0
+      if (this.error[i] === null) {
+        this.attackRecharge[i] = Math.max(this.attackRecharge[i] - S.dt, 0)
+        if (
+          this.target[i] !== null &&
+          distance(this.position[i], this.target[i]) < S.attackRange
+        ) {
+          this.attack(i, bullets)
+        } else if (this.destination[i] !== null) {
+          this.move(i, pathfinder)
+        } else {
+          this.speed[i] = 0
+          this.angularVelocity[i] = 0
+        }
       }
     })
     // Animations
@@ -734,8 +794,17 @@ export class Sim {
     }
   }
 
+  userSelect(position: Vec2): void {
+    this.players.userSelect(position, this.crits)
+  }
+
+  userLoadProgram(program: string): void {
+    this.players.userLoadProgram(program)
+  }
+
   programUpdate(): void {
     this.crits.programUpdate(this.players, this.level.map)
+    this.players.programUpdate(this.crits)
   }
 
   update(): void {

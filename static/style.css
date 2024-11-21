@@ -32,23 +32,37 @@ body {
 }
 #col-editor {
   display: grid;
-  grid-template-rows: 1fr auto;
+  grid-template-rows: 1fr auto auto;
+}
+#col-editor > * {
+  padding: 8pt;
 }
 #editor {
   resize: none;
-  padding: 8pt;
   font-size: large;
   background-color: #222;
   color: #fff;
   border: none;
 }
 #output {
-  padding: 8pt;
   white-space: pre-wrap;
+  font-size: small;
+}
+#debug {
+  white-space: pre-wrap;
+  font-size: small;
+  max-height: 30vh;
+  overflow-y: auto;
 }
 [data-status="ok"] {
   background-color: #040;
 }
 [data-status="error"] {
   background-color: #600;
+}
+[data-status="none"] {
+  background-color: #222;
+}
+td {
+  padding: 0 5px;
 }

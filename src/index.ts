@@ -1,24 +1,31 @@
 import * as THREE from "three"
 import { Image32 } from "./common"
-import * as Crasm from "./crasm"
 import * as Maps from "./maps"
 import * as Sim from "./sim"
 import * as Views from "./views"
 import * as Sound from "./sound"
 
 class Page {
+  // Main
   sim: HTMLElement
-  editor: HTMLTextAreaElement
-  output: HTMLElement
+  // Overlays
   fpsCounter: HTMLElement
   outcome: HTMLElement
+  // Dev panel
+  editor: HTMLTextAreaElement
+  output: HTMLElement
+  debug: HTMLElement
 
   constructor() {
+    // Main
     this.sim = document.getElementById("col-sim")!
-    this.editor = document.getElementById("editor")! as HTMLTextAreaElement
-    this.output = document.getElementById("output")!
+    // Overlays
     this.fpsCounter = document.getElementById("fps-counter")!
     this.outcome = document.getElementById("outcome")!
+    // Dev panel
+    this.editor = document.getElementById("editor")! as HTMLTextAreaElement
+    this.output = document.getElementById("output")!
+    this.debug = document.getElementById("debug")!
   }
 }
 
@@ -84,6 +91,18 @@ function updateCamera(
   camera.updateProjectionMatrix()
 }
 
+function formatValue(value: any): string {
+  if (typeof value === "number") {
+    return value.toFixed(Math.floor(value) === value ? 0 : 2)
+  }
+  if (Array.isArray(value)) {
+    return (
+      `${value.map(formatValue).join(",")}` + (value.length <= 1 ? "," : "")
+    )
+  }
+  return String(value)
+}
+
 async function load(page: Page) {
   // World
   const playOnEvent = await Sound.load()
@@ -100,6 +119,30 @@ async function load(page: Page) {
         page.output.textContent = "Program loaded"
         page.output.dataset.status = "ok"
       }
+      if (event === Sim.Event.ProgramDebug) {
+        if (data === null) {
+          page.debug.textContent = "No critter selected"
+          page.debug.dataset.status = "none"
+        } else {
+          const error = document.createElement("div")
+          if (data.error !== null) {
+            error.textContent = data.error.message + "\n------"
+            if (data.error.line !== undefined) {
+              error.textContent = `L${data.error.line} ${error.textContent}`
+            }
+            page.debug.dataset.status = "error"
+          } else {
+            page.debug.dataset.status = "none"
+          }
+          const table = document.createElement("table")
+          for (const key in data.mem) {
+            const row = table.insertRow()
+            row.insertCell().textContent = key
+            row.insertCell().textContent = formatValue(data.mem[key])
+          }
+          page.debug.replaceChildren(error, table)
+        }
+      }
     })
   )
 
@@ -107,7 +150,7 @@ async function load(page: Page) {
   page.editor.value = window.localStorage.getItem("program") ?? ""
   page.editor.addEventListener("keydown", (event) => {
     if (event.ctrlKey && event.key === "Enter") {
-      sim.players.loadProgram(page.editor.value!)
+      sim.userLoadProgram(page.editor.value!)
       window.localStorage.setItem("program", page.editor.value!)
     }
   })
@@ -123,6 +166,16 @@ async function load(page: Page) {
   window.addEventListener("resize", () => {
     renderer.setSize(page.sim.offsetWidth, page.sim.offsetHeight)
     updateCamera(camera, page.sim, level.map)
+  })
+
+  renderer.domElement.addEventListener("click", (e: MouseEvent) => {
+    const rect = renderer.domElement.getBoundingClientRect()
+    const position = new THREE.Vector3(
+      ((e.clientX - rect.left) / rect.width) * 2 - 1,
+      ((rect.top - e.clientY) / rect.height) * 2 + 1,
+      0
+    ).unproject(camera)
+    sim.userSelect([position.x, position.y])
   })
 
   const scene = new THREE.Scene()
@@ -141,6 +194,12 @@ async function load(page: Page) {
     ),
     new Views.BulletsView(sim.bullets, scene, /*isHeal*/ false),
     new Views.BulletsView(sim.healBullets, scene, /*isHeal*/ true),
+    new Views.UserSelectionView(
+      sim.players,
+      sim.crits,
+      scene,
+      await loadTexture("textures/selection.png")
+    ),
   ]
 
   // Render and physics loop

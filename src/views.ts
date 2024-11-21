@@ -13,6 +13,15 @@ const S = {
   // Params
   bulletLength: 0.3, // m
   bulletThickness: 0.15, // m
+  critterSizeRatio: 1.3, // #
+  selectionSizeRatio: 1.5, // #
+
+  // Z Order
+  zMap: 0.0,
+  zSelection: 0.25,
+  zBullets: 0.5,
+  zBases: 0.75,
+  zCritters: 1.0,
 }
 
 // Helpers
@@ -54,10 +63,10 @@ class PlaneInstancedBufferGeometry extends THREE.InstancedBufferGeometry {
       new THREE.BufferAttribute(
         // prettier-ignore
         new Float32Array([
-          ox - dx, ox + dy,
-          ox + dx, ox + dy,
-          ox - dx, ox - dy,
-          ox + dx, ox - dy,
+          ox - dx, oy + dy,
+          ox + dx, oy + dy,
+          ox - dx, oy - dy,
+          ox + dx, oy - dy,
         ]),
         2
       )
@@ -102,7 +111,7 @@ void main() {
         side * position.x * cos(angle) - position.y * sin(angle),
         side * position.x * sin(angle) + position.y * cos(angle)
     ) + offset;
-    gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1, 1);
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(p, ${S.zCritters}, 1);
 }
 `
 const critsFragmentShader = `
@@ -152,8 +161,12 @@ export class CritsView implements View {
       transparent: true,
       side: THREE.DoubleSide,
     })
-    const R = Sim.S.radius
-    this.geometry = new PlaneInstancedBufferGeometry([R, 2 * R], [R / 2, 0], 1)
+    const R = S.critterSizeRatio * Sim.S.radius
+    this.geometry = new PlaneInstancedBufferGeometry(
+      [R, 2 * R],
+      [R / 2, 0],
+      S.zCritters
+    )
     this.geometry.instanceCount = 0
 
     // Shrink the u-coordinate to avoid spritesheet artifacts
@@ -253,7 +266,7 @@ void main() {
         position.x * cos(angle) - position.y * sin(angle),
         position.x * sin(angle) + position.y * cos(angle)
     ) + offset;
-    gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 0.5, 1);
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(p, ${S.zBullets}, 1);
 }
 `
 const bulletsFragmentShader = `
@@ -291,7 +304,7 @@ export class BulletsView implements View {
     this.geometry = new PlaneInstancedBufferGeometry(
       [S.bulletThickness, S.bulletLength],
       [0, 0],
-      0.5
+      S.zBullets
     )
     this.geometry.instanceCount = 0
 
@@ -392,7 +405,7 @@ export class BasesView implements View {
         transparent: true,
       })
       const mesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), material)
-      mesh.position.set(bases.position[i][0], bases.position[i][1], 1)
+      mesh.position.set(bases.position[i][0], bases.position[i][1], S.zBases)
       scene.add(mesh)
       this.materials.push(material)
       this.flashTau.push(0)
@@ -444,7 +457,8 @@ attribute vec2 position;
 attribute vec2 offset;
 
 void main() {
-    gl_Position = projectionMatrix * modelViewMatrix * vec4(position + offset, 0, 1);
+    gl_Position = projectionMatrix * modelViewMatrix
+      * vec4(position + offset, ${S.zMap}, 1);
 }
 `
 const mapFragmentShader = `
@@ -500,7 +514,7 @@ export class MapView implements View {
     }
 
     function createTiles(xys: Vec2[], material: THREE.ShaderMaterial) {
-      const geometry = new PlaneInstancedBufferGeometry([1, 1], [0, 0], 0)
+      const geometry = new PlaneInstancedBufferGeometry([1, 1], [0, 0], S.zMap)
       geometry.instanceCount = xys.length
       const a = new Float32Array(xys.length * 2)
       for (let i = 0; i < xys.length; i++) {
@@ -528,5 +542,42 @@ export class MapView implements View {
   }
   update(dt: number): void {
     // Nothing to do
+  }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// Selection
+
+export class UserSelectionView implements View {
+  private mesh: THREE.Mesh
+
+  constructor(
+    private players: Sim.Players,
+    private crits: Sim.Crits,
+    scene: THREE.Scene,
+    texture: THREE.Texture
+  ) {
+    const size = S.selectionSizeRatio * 2 * Sim.S.radius
+    this.mesh = new THREE.Mesh(
+      new THREE.PlaneGeometry(size, size),
+      new THREE.MeshBasicMaterial({
+        color: S.secondary,
+        map: texture,
+        transparent: true,
+      })
+    )
+    this.mesh.visible = false
+    scene.add(this.mesh)
+  }
+
+  update(dt: number): void {
+    const idx = this.players.userSelection
+    if (idx !== null && this.crits.id[idx] === this.players.userSelectionId) {
+      const position = this.crits.position[idx]
+      this.mesh.position.set(position[0], position[1], S.zSelection)
+      this.mesh.visible = true
+    } else {
+      this.mesh.visible = false
+    }
   }
 }
