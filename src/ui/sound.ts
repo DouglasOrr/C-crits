@@ -1,4 +1,4 @@
-import * as Sim from "./sim"
+import * as Sim from "../sim"
 
 const S = {
   debounceTime: 0.05, // s

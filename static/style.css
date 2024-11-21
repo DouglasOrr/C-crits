@@ -1,9 +1,20 @@
 body {
-  background-color: #000;
+  background-color: #222;
   margin: 0;
   font-family: monospace;
   color: #fff;
 }
+#root {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  position: absolute;
+  top: 0px;
+  left: 0px;
+  right: 0px;
+  bottom: 0px;
+}
+
+/* Game */
 #fps-counter {
   position: fixed;
   top: 0.5em;
@@ -16,26 +27,46 @@ body {
   top: 2em;
   left: 0.5em;
 }
-#root {
-  display: grid;
-  grid-template-columns: 2fr 1fr;
-  position: absolute;
-  top: 0px;
-  left: 0px;
-  right: 0px;
-  bottom: 0px;
-}
 #col-sim {
   display: grid;
   min-width: 0px;
   min-height: 0px;
 }
-#col-editor {
+/* Dev panel */
+#col-dev {
   display: grid;
-  grid-template-rows: 1fr auto auto;
+  grid-template-rows: auto 1fr auto auto;
+  border-left: #111 2px solid;
 }
-#col-editor > * {
-  padding: 8pt;
+#col-dev > * {
+  padding: 0.75em;
+}
+#controls {
+  border-bottom: #111 2px solid;
+  display: grid;
+  grid-template-columns: auto auto auto 1fr;
+}
+#controls > button {
+  margin: 0em 0.5em 0em 0em;
+  width: 2em;
+  padding: 0.5em;
+  background-color: #444;
+  color: #fff;
+  border: none;
+  cursor: pointer;
+}
+#controls > button:hover {
+  background-color: #666;
+}
+#controls > button:active {
+  background-color: #888;
+  transform: scale(0.95);
+}
+#input-search {
+  outline: none;
+  background-color: #222;
+  color: #fff;
+  border: 1px solid #666;
 }
 #editor {
   resize: none;
@@ -43,6 +74,7 @@ body {
   background-color: #222;
   color: #fff;
   border: none;
+  outline: none;
 }
 #output {
   white-space: pre-wrap;
@@ -54,15 +86,12 @@ body {
   max-height: 30vh;
   overflow-y: auto;
 }
+#debug td {
+  padding: 0 5px;
+}
 [data-status="ok"] {
   background-color: #040;
 }
 [data-status="error"] {
   background-color: #600;
-}
-[data-status="none"] {
-  background-color: #222;
-}
-td {
-  padding: 0 5px;
 }

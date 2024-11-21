@@ -2,43 +2,33 @@ import * as THREE from "three"
 import { Image32 } from "./common"
 import * as Maps from "./maps"
 import * as Sim from "./sim"
-import * as Views from "./views"
-import * as Sound from "./sound"
+import * as Views from "./ui/views"
+import * as Sound from "./ui/sound"
+import * as Page from "./ui/page"
 
-class Page {
-  // Main
-  sim: HTMLElement
-  // Overlays
-  fpsCounter: HTMLElement
-  outcome: HTMLElement
-  // Dev panel
-  editor: HTMLTextAreaElement
-  output: HTMLElement
-  debug: HTMLElement
+import "@fortawesome/fontawesome-free/js/fontawesome"
+import "@fortawesome/fontawesome-free/js/solid"
 
-  constructor() {
-    // Main
-    this.sim = document.getElementById("col-sim")!
-    // Overlays
-    this.fpsCounter = document.getElementById("fps-counter")!
-    this.outcome = document.getElementById("outcome")!
-    // Dev panel
-    this.editor = document.getElementById("editor")! as HTMLTextAreaElement
-    this.output = document.getElementById("output")!
-    this.debug = document.getElementById("debug")!
-  }
+type Textures = {
+  base: THREE.Texture
+  base_n: THREE.Texture
+  crit: THREE.Texture
+  selection: THREE.Texture
 }
-
-function createFpsCounter(page: Page): { update: () => void } {
-  let frameCount = 0
-  setInterval(() => {
-    page.fpsCounter.textContent = `${frameCount} fps`
-    frameCount = 0
-  }, 1000)
+async function loadTextures(): Promise<Textures> {
+  async function load(name: string): Promise<THREE.Texture> {
+    return new Promise((resolve) => {
+      new THREE.TextureLoader().load(`textures/${name}.png`, (texture) => {
+        texture.minFilter = THREE.NearestFilter
+        resolve(texture)
+      })
+    })
+  }
   return {
-    update: () => {
-      frameCount += 1
-    },
+    base: await load("base"),
+    base_n: await load("base_n"),
+    crit: await load("crit"),
+    selection: await load("selection"),
   }
 }
 
@@ -55,15 +45,6 @@ async function loadImage(src: string): Promise<Image32> {
     height: img.height,
     data: uint32Array,
   }
-}
-
-async function loadTexture(src: string): Promise<THREE.Texture> {
-  return new Promise((resolve) => {
-    new THREE.TextureLoader().load(src, (texture) => {
-      texture.minFilter = THREE.NearestFilter
-      resolve(texture)
-    })
-  })
 }
 
 async function loadLevel(name: string): Promise<Maps.Level> {
@@ -91,125 +72,61 @@ function updateCamera(
   camera.updateProjectionMatrix()
 }
 
-function formatValue(value: any): string {
-  if (typeof value === "number") {
-    return value.toFixed(Math.floor(value) === value ? 0 : 2)
-  }
-  if (Array.isArray(value)) {
-    return (
-      `${value.map(formatValue).join(",")}` + (value.length <= 1 ? "," : "")
-    )
-  }
-  return String(value)
-}
+async function load() {
+  // First load
+  const page = new Page.Page()
+  const playSound = await Sound.load()
+  const textures = await loadTextures()
+  page.editor.value = window.localStorage.getItem("program") ?? ""
+  const renderer = new THREE.WebGLRenderer({ antialias: false })
+  renderer.setClearColor(
+    new THREE.Color(getComputedStyle(document.body).backgroundColor)
+  )
+  renderer.setSize(page.sim.offsetWidth, page.sim.offsetHeight)
+  page.sim.appendChild(renderer.domElement)
+  window.addEventListener("resize", () => {
+    renderer.setSize(page.sim.offsetWidth, page.sim.offsetHeight)
+  })
 
-async function load(page: Page) {
   // World
-  const playOnEvent = await Sound.load()
   const level = await loadLevel("level_0")
   const sim = new Sim.Sim(
     level,
-    Sim.listeners(playOnEvent, (event: Sim.Event, data?: any) => {
-      if (event === Sim.Event.ProgramError) {
-        console.error(data)
-        page.output.textContent = data.show()
-        page.output.dataset.status = "error"
-      }
-      if (event === Sim.Event.ProgramLoad) {
-        page.output.textContent = "Program loaded"
-        page.output.dataset.status = "ok"
-      }
-      if (event === Sim.Event.ProgramDebug) {
-        if (data === null) {
-          page.debug.textContent = "No critter selected"
-          page.debug.dataset.status = "none"
-        } else {
-          const error = document.createElement("div")
-          if (data.error !== null) {
-            error.textContent = data.error.message + "\n------"
-            if (data.error.line !== undefined) {
-              error.textContent = `L${data.error.line} ${error.textContent}`
-            }
-            page.debug.dataset.status = "error"
-          } else {
-            page.debug.dataset.status = "none"
-          }
-          const table = document.createElement("table")
-          for (const key in data.mem) {
-            const row = table.insertRow()
-            row.insertCell().textContent = key
-            row.insertCell().textContent = formatValue(data.mem[key])
-          }
-          page.debug.replaceChildren(error, table)
-        }
-      }
-    })
+    Sim.listeners(playSound, page.updateDebug.bind(page))
   )
 
-  // Input
-  page.editor.value = window.localStorage.getItem("program") ?? ""
-  page.editor.addEventListener("keydown", (event) => {
-    if (event.ctrlKey && event.key === "Enter") {
-      sim.userLoadProgram(page.editor.value!)
-      window.localStorage.setItem("program", page.editor.value!)
-    }
-  })
-
-  // Rendering
-  const renderer = new THREE.WebGLRenderer({ antialias: false })
-  renderer.setSize(page.sim.offsetWidth, page.sim.offsetHeight)
-  page.sim.appendChild(renderer.domElement)
-
+  // Scene
   const camera = new THREE.OrthographicCamera()
   camera.position.z = 100
   updateCamera(camera, page.sim, level.map)
-  window.addEventListener("resize", () => {
-    renderer.setSize(page.sim.offsetWidth, page.sim.offsetHeight)
-    updateCamera(camera, page.sim, level.map)
-  })
-
-  renderer.domElement.addEventListener("click", (e: MouseEvent) => {
-    const rect = renderer.domElement.getBoundingClientRect()
-    const position = new THREE.Vector3(
-      ((e.clientX - rect.left) / rect.width) * 2 - 1,
-      ((rect.top - e.clientY) / rect.height) * 2 + 1,
-      0
-    ).unproject(camera)
-    sim.userSelect([position.x, position.y])
-  })
-
   const scene = new THREE.Scene()
   const views = [
     new Views.MapView(level.map, scene),
-    new Views.BasesView(
-      sim.bases,
-      scene,
-      await loadTexture("textures/base.png"),
-      await loadTexture("textures/base_n.png")
-    ),
-    new Views.CritsView(
-      sim.crits,
-      scene,
-      await loadTexture("textures/crit.png")
-    ),
+    new Views.BasesView(sim.bases, scene, textures.base, textures.base_n),
+    new Views.CritsView(sim.crits, scene, textures.crit),
     new Views.BulletsView(sim.bullets, scene, /*isHeal*/ false),
     new Views.BulletsView(sim.healBullets, scene, /*isHeal*/ true),
     new Views.UserSelectionView(
       sim.players,
       sim.crits,
       scene,
-      await loadTexture("textures/selection.png")
+      textures.selection
     ),
   ]
 
   // Render and physics loop
+  let running = false
   let programUpdateTime: number | undefined = undefined
   let updateTime: number | undefined = undefined
   let animationTime: number | undefined = undefined
-  const fpsCounter = createFpsCounter(page)
+  const fpsCounter = page.createFpsCounter()
   renderer.setAnimationLoop((time: number) => {
     time /= 1000
-    if (updateTime === undefined || programUpdateTime === undefined) {
+    if (
+      !running ||
+      updateTime === undefined ||
+      programUpdateTime === undefined
+    ) {
       programUpdateTime = updateTime = Sim.S.dt * Math.floor(time / Sim.S.dt)
     } else {
       while (programUpdateTime < time) {
@@ -232,8 +149,41 @@ async function load(page: Page) {
     }
     animationTime = time
   })
+
+  // Input
+  window.addEventListener("resize", () => {
+    updateCamera(camera, page.sim, level.map)
+  })
+  page.buttonPlayPause.addEventListener("click", () => {
+    running = !running
+    const icon = page.buttonPlayPause.children[0].classList
+    if (running) {
+      sim.userLoadProgram(page.editor.value!)
+      icon.remove("fa-play")
+      icon.add("fa-pause")
+    } else {
+      icon.add("fa-play")
+      icon.remove("fa-pause")
+    }
+  })
+  page.buttonUpload.addEventListener("click", () => {
+    sim.userLoadProgram(page.editor.value!)
+    window.localStorage.setItem("program", page.editor.value!)
+  })
+  page.buttonRestart.addEventListener("click", () => {
+    window.location.reload()
+  })
+  renderer.domElement.addEventListener("click", (e: MouseEvent) => {
+    const rect = renderer.domElement.getBoundingClientRect()
+    const position = new THREE.Vector3(
+      ((e.clientX - rect.left) / rect.width) * 2 - 1,
+      ((rect.top - e.clientY) / rect.height) * 2 + 1,
+      0
+    ).unproject(camera)
+    sim.userSelect([position.x, position.y])
+  })
 }
 
 window.onload = () => {
-  load(new Page())
+  load()
 }

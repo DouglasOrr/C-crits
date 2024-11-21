@@ -17,3 +17,7 @@ Maybe:
 - `crit_spawn_2` Science fiction, cyberpunk, robot button press, beep
 - `base_death_1` Bomb, cannon, explosion, hard, distant (by Audio Hero)
 - `base_death_2` Cinematic hit, explosion followed by a whoosh, zoom 2
+
+---
+
+Icons from FontAwesome (free version).
