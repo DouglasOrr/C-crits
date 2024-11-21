@@ -115,7 +115,7 @@ async function load() {
   ]
 
   // Render and physics loop
-  let running = false
+  let running = true
   let programUpdateTime: number | undefined = undefined
   let updateTime: number | undefined = undefined
   let animationTime: number | undefined = undefined

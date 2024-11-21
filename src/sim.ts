@@ -17,8 +17,11 @@ export const S = {
   radius: 0.2, // m
   maxCritters: 1000, // #
   maxBullets: 1000, // #
+
+  // Programming
   maxRuntimeErrors: 10, // #
   cycleLimit: 100, // #
+  password: 42, // #
 
   // Movement
   speed: 4, // m/s
@@ -422,6 +425,8 @@ class Memory {
   $dest: Vec2 | null = null
   $tgt: Vec2 | null = null
   $state: string | null = null
+  $passwd: number | null = null
+  $posw: number = 0
 }
 
 // Crits indices "slots" have the following states:
@@ -483,6 +488,7 @@ export class Crits {
           S.cycleLimit,
           mem.$state
         )
+        this.validatePassword(mem, i)
       } catch (e) {
         if (e instanceof Crasm.RuntimeError) {
           this.error[i] = e
@@ -516,8 +522,31 @@ export class Crits {
         }
         this.destination[i] = readVec2(mem, "$dest")
         this.target[i] = readVec2(mem, "$tgt")
+        if (mem.$posw !== 0) {
+          const pos = readVec2(mem, "$pos")
+          if (pos !== null) {
+            this.position[i] = pos
+          }
+        }
       }
     })
+  }
+
+  private validatePassword(mem: Memory, i: number) {
+    if (mem.$passwd !== null && mem.$passwd !== S.password) {
+      mem.$posw = 0
+      if (mem.$passwd === null) {
+        // OK
+      } else if (
+        typeof mem.$passwd !== "number" ||
+        mem.$passwd < 10 ||
+        mem.$passwd >= 100
+      ) {
+        this.error[i] = { message: "(\\d\\d) bad password" }
+      } else {
+        this.error[i] = { message: "Bad password" }
+      }
+    }
   }
 
   // General

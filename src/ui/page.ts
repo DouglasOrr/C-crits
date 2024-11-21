@@ -5,9 +5,8 @@ function formatValue(value: any): string {
     return value.toFixed(Math.floor(value) === value ? 0 : 2)
   }
   if (Array.isArray(value)) {
-    return (
-      `${value.map(formatValue).join(",")}` + (value.length <= 1 ? "," : "")
-    )
+    const s = `${value.map(formatValue).join(",")}`
+    return s + (value.length <= 1 ? "," : "")
   }
   return String(value)
 }
@@ -82,7 +81,8 @@ export class Page {
         for (const key in data.mem) {
           const row = table.insertRow()
           row.insertCell().textContent = key
-          row.insertCell().textContent = formatValue(data.mem[key])
+          row.insertCell().textContent =
+            key === "$passwd" ? "<?>" : formatValue(data.mem[key])
         }
         this.debug.replaceChildren(error, table)
       }
