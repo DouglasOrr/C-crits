@@ -26,7 +26,7 @@ export const S = {
   // Movement
   speed: 4, // m/s
   waterSpeed: 0.4, // m/s
-  rotationRate: 3, // rad/s
+  rotationRate: 5, // rad/s
   directionMoveTolerance: Math.PI / 4, // rad
   avoidTolerance: 1.5, // # (multiplier)
 
@@ -41,12 +41,12 @@ export const S = {
   baseHealth: 2500, // hp
 
   // Base
-  spawnTime: 2, // s
+  spawnTime: 2.5, // s
   spawnRingRatio: 1.5, // #
-  healRange: 3, // m
+  healRange: 2.5, // m
   healRadius: 0.3, // m
   healTime: 0.25, // s
-  healing: 10, // hp
+  healing: 5, // hp
 
   // Neutral base
   captureRange: 3, // m
@@ -418,15 +418,20 @@ export class Players {
 }
 
 class Memory {
+  // Outputs
+  $state: string | null = null
+  $dest: Vec2 | null = null
+  $tgt: Vec2 | null = null
+  // Special
+  $passwd: number | null = null
+  $posw: number = 0
   // Inputs
   $id: number = -1
   $pos: Vec2 = [0, 0]
-  // Outputs
-  $dest: Vec2 | null = null
-  $tgt: Vec2 | null = null
-  $state: string | null = null
-  $passwd: number | null = null
-  $posw: number = 0
+  $ne: Vec2 | null = null
+  $hb: Vec2 = [0, 0]
+  $eb: Vec2 | null = null
+  $hlth: number = 0
 }
 
 // Crits indices "slots" have the following states:
@@ -471,7 +476,7 @@ export class Crits {
 
   // Program
 
-  programUpdate(players: Players, map: Maps.Map): void {
+  programUpdate(players: Players, bases: Bases, map: Maps.Map): void {
     this.forEachIndex((i) => {
       const mem = this.memory[i]
       this.error[i] = null
@@ -479,6 +484,12 @@ export class Crits {
       // 1. Prepare the input state
       mem.$id = this.id[i]
       mem.$pos = [...this.position[i]]
+      mem.$hb = bases.position[this.player[i]]
+      if (this.player[i] <= 1) {
+        mem.$eb = bases.position[1 - this.player[i]]
+      }
+      mem.$ne = this.findNearestEnemy(i)
+      mem.$hlth = this.health[i]
 
       // 2. Run the user program
       try {
@@ -530,6 +541,21 @@ export class Crits {
         }
       }
     })
+  }
+
+  private findNearestEnemy(i: number): Vec2 | null {
+    let nearestDistance = Infinity
+    let nearestPosition: Vec2 | null = null
+    this.forEachIndex((j) => {
+      if (this.player[j] !== this.player[i]) {
+        const d = distance(this.position[i], this.position[j])
+        if (d < nearestDistance) {
+          nearestDistance = d
+          nearestPosition = this.position[j]
+        }
+      }
+    })
+    return nearestPosition === null ? null : [...nearestPosition]
   }
 
   private validatePassword(mem: Memory, i: number) {
@@ -803,6 +829,9 @@ export class Sim {
     this.pathfinder = new Maps.Pathfinder(level.map)
     this.players = new Players(level.initialCritters.length, listener)
     this.bases = new Bases(level, listener)
+    for (const [enemy, program] of level.program.entries()) {
+      this.players.program[1 + enemy] = program
+    }
     for (const [player, count] of level.initialCritters.entries()) {
       for (let i = 0; i < count; ++i) {
         this.bases.spawnCritter(player, this.crits, this.players)
@@ -832,7 +861,7 @@ export class Sim {
   }
 
   programUpdate(): void {
-    this.crits.programUpdate(this.players, this.level.map)
+    this.crits.programUpdate(this.players, this.bases, this.level.map)
     this.players.programUpdate(this.crits)
   }
 

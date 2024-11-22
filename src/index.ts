@@ -5,6 +5,8 @@ import * as Sim from "./sim"
 import * as Views from "./ui/views"
 import * as Sound from "./ui/sound"
 import * as Page from "./ui/page"
+import * as Crasm from "./crasm"
+import * as AI from "./ai"
 
 import "@fortawesome/fontawesome-free/js/fontawesome"
 import "@fortawesome/fontawesome-free/js/solid"
@@ -51,6 +53,11 @@ async function loadLevel(name: string): Promise<Maps.Level> {
   const response = await fetch(`levels/${name}.json`)
   const data = await response.json()
   data["map"] = Maps.fromImage(await loadImage(`maps/${data["map"]}.png`))
+  data["program"] = data["program"].map((program: string | null) =>
+    program === null
+      ? Crasm.emptyProgram()
+      : Crasm.parse(AI[program as keyof typeof AI])
+  )
   return data as Maps.Level
 }
 
@@ -154,17 +161,23 @@ async function load() {
   window.addEventListener("resize", () => {
     updateCamera(camera, page.sim, level.map)
   })
-  page.buttonPlayPause.addEventListener("click", () => {
-    running = !running
+  function updatePlayIcon() {
     const icon = page.buttonPlayPause.children[0].classList
     if (running) {
-      sim.userLoadProgram(page.editor.value!)
       icon.remove("fa-play")
       icon.add("fa-pause")
     } else {
       icon.add("fa-play")
       icon.remove("fa-pause")
     }
+  }
+  updatePlayIcon()
+  page.buttonPlayPause.addEventListener("click", () => {
+    running = !running
+    if (running) {
+      sim.userLoadProgram(page.editor.value!)
+    }
+    updatePlayIcon()
   })
   page.buttonUpload.addEventListener("click", () => {
     sim.userLoadProgram(page.editor.value!)

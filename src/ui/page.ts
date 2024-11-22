@@ -2,7 +2,7 @@ import * as Sim from "../sim"
 
 function formatValue(value: any): string {
   if (typeof value === "number") {
-    return value.toFixed(Math.floor(value) === value ? 0 : 2)
+    return value.toFixed(Math.floor(value) === value ? 0 : 1)
   }
   if (Array.isArray(value)) {
     const s = `${value.map(formatValue).join(",")}`
@@ -78,11 +78,23 @@ export class Page {
           this.debug.dataset.status = "none"
         }
         const table = document.createElement("table")
-        for (const key in data.mem) {
+        const keys = Object.keys(data.mem)
+        const nRows = Math.ceil(keys.length / 2)
+        for (let i = 0; i < nRows; ++i) {
           const row = table.insertRow()
-          row.insertCell().textContent = key
-          row.insertCell().textContent =
-            key === "$passwd" ? "<?>" : formatValue(data.mem[key])
+          for (const j of [0, nRows]) {
+            if (i + j < keys.length) {
+              const key = keys[i + j]
+              const value =
+                key === "$passwd" ? "<?>" : formatValue(data.mem[key])
+              row.insertCell().textContent = key
+              const v = row.insertCell()
+              v.textContent = value
+              if (j === 0) {
+                v.style.borderRight = "1px solid #666"
+              }
+            }
+          }
         }
         this.debug.replaceChildren(error, table)
       }

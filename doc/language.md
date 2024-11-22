@@ -154,8 +154,13 @@ jez $patience @return_home  ; jump to `@return_home` if $patience is 0 (or 0,0)
 
 | Register     | Direction | Type               | Description                                                                                         |
 | ------------ | --------- | ------------------ | --------------------------------------------------------------------------------------------------- |
+| **`$state`** | R/W       | `@label` \| `null` | start point for the next update                                                                     |
+| **`$dest`**  | R/W       | `x,y` \| `null`    | set to non-null to move to that position                                                            |
+| **`$tgt`**   | R/W       | `x,y` \| `null`    | set to non-null to attack that position, if currently in range (this takes precedence over `$dest`) |
+|              |           |                    |                                                                                                     |
 | **`$id`**    | R         | `number`           | critter ID (unique, starting from 0)                                                                |
 | **`$pos`**   | R         | `number`           | current critter position                                                                            |
-| **`$tgt`**   | R/W       | `x,y` \| `null`    | set to non-null to attack that position, if currently in range (this takes precedence over `$dest`) |
-| **`$dest`**  | R/W       | `x,y` \| `null`    | set to non-null to move to that position                                                            |
-| **`$state`** | R/W       | `@label` \| `null` | start point for the next update                                                                     |
+| **`$ne`**    | R         | `x,y`              | nearest enemy critter position                                                                      |
+| **`$hb`**    | R         | `x,y`              | home base position                                                                                  |
+| **`$eb`**    | R         | `x,y`              | enemy base position                                                                                 |
+| **`$hlth`**  | R         | `number`           | critter health                                                                                      |
