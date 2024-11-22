@@ -336,7 +336,8 @@ export class Players {
   nextId: number[]
   program: Crasm.Program[]
   errorsSinceLastLoad: number[]
-  // Selection (debug)
+  // User control
+  userMarker: Vec2 | null = null
   userSelection: number | null = null
   userSelectionId: number | null = null
 
@@ -367,6 +368,17 @@ export class Players {
       } else {
         throw error
       }
+    }
+  }
+
+  userSetMarker(position: Vec2): void {
+    if (
+      this.userMarker !== null &&
+      v2Equal(v2Floor(this.userMarker), v2Floor(position))
+    ) {
+      this.userMarker = null // dismiss
+    } else {
+      this.userMarker = v2Add(v2Floor(position), [0.5, 0.5])
     }
   }
 
@@ -431,6 +443,7 @@ class Memory {
   $ne: Vec2 | null = null
   $hb: Vec2 = [0, 0]
   $eb: Vec2 | null = null
+  $mark: Vec2 | null = null
   $hlth: number = 0
 }
 
@@ -490,6 +503,9 @@ export class Crits {
       }
       mem.$ne = this.findNearestEnemy(i)
       mem.$hlth = this.health[i]
+      if (this.player[i] === 0) {
+        mem.$mark = players.userMarker === null ? null : [...players.userMarker]
+      }
 
       // 2. Run the user program
       try {
@@ -850,6 +866,10 @@ export class Sim {
         }
       }, true)
     }
+  }
+
+  userSetMarker(position: Vec2): void {
+    this.players.userSetMarker(position)
   }
 
   userSelect(position: Vec2): void {

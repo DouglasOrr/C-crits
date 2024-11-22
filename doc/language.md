@@ -163,4 +163,5 @@ jez $patience @return_home  ; jump to `@return_home` if $patience is 0 (or 0,0)
 | **`$ne`**    | R         | `x,y`              | nearest enemy critter position                                                                      |
 | **`$hb`**    | R         | `x,y`              | home base position                                                                                  |
 | **`$eb`**    | R         | `x,y`              | enemy base position                                                                                 |
+| **`$mark`**  | R         | `x,y` \| `null`    | user-controlled marker                                                                              |
 | **`$hlth`**  | R         | `number`           | critter health                                                                                      |

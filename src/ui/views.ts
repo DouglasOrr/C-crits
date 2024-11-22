@@ -1,26 +1,28 @@
 import * as THREE from "three"
 import * as Maps from "../maps"
 import * as Sim from "../sim"
-import { Vec2 } from "../common"
+import { randn, v2Equal, Vec2 } from "../common"
 
 const S = {
   // Palette
   light: new THREE.Color(0xeeeeee),
   dark: new THREE.Color(0x000000),
-  primary: new THREE.Color(0x4090e8),
-  secondary: new THREE.Color(0xf89080),
+  primary: new THREE.Color(0x1564d0),
+  secondary: new THREE.Color(0xed5020),
 
   // Params
   bulletLength: 0.3, // m
   bulletThickness: 0.15, // m
   critterSizeRatio: 1.3, // #
   selectionSizeRatio: 1.5, // #
+  markerParticles: 100, // #
 
   // Z Order
   zMap: 0.0,
   zSelection: 0.25,
   zBullets: 0.5,
   zBases: 0.75,
+  zMarker: 0.9,
   zCritters: 1.0,
 }
 
@@ -153,7 +155,9 @@ export class CritsView implements View {
         tex: { value: texture },
         nFrames: { value: this.nFrames },
         playerColors: {
-          value: [playerColor(0), playerColor(1), playerColor(2)],
+          value: [playerColor(0), playerColor(1), playerColor(2)].map((c) =>
+            new THREE.Color().copyLinearToSRGB(c)
+          ),
         },
       },
       vertexShader: critsVertexShader,
@@ -295,7 +299,9 @@ export class BulletsView implements View {
   ) {
     const material = new THREE.RawShaderMaterial({
       uniforms: {
-        color: { value: bulletColor(isHeal) },
+        color: {
+          value: new THREE.Color().copyLinearToSRGB(bulletColor(isHeal)),
+        },
       },
       vertexShader: bulletsVertexShader,
       fragmentShader: bulletsFragmentShader,
@@ -382,6 +388,7 @@ void main() {
 export class BasesView implements View {
   materials: THREE.ShaderMaterial[] = []
   flashTau: number[] = []
+  srgbColors: THREE.Color[] = []
 
   constructor(
     private bases: Sim.Bases,
@@ -390,9 +397,12 @@ export class BasesView implements View {
     neutralBaseTexture: THREE.Texture
   ) {
     for (let i = 0; i < bases.length; i++) {
+      this.srgbColors.push(new THREE.Color().copyLinearToSRGB(playerColor(i)))
       const material = new THREE.RawShaderMaterial({
         uniforms: {
-          color: { value: playerColor(i) },
+          color: {
+            value: this.srgbColors[i],
+          },
           dying: { value: 0 },
           tex: {
             value: Sim.Bases.isNeutralBase(i)
@@ -414,7 +424,7 @@ export class BasesView implements View {
 
   update(dt: number): void {
     this.bases.forEachIndex((i) => {
-      const baseColor = playerColor(this.bases.owner[i])
+      const baseColor = this.srgbColors[this.bases.owner[i]]
       const uColor = this.materials[i].uniforms.color
       if (this.bases.health[i] === 0) {
         // Exploding
@@ -427,8 +437,8 @@ export class BasesView implements View {
           ? this.bases.captureProgress[i] / Sim.S.captureTime
           : 1 - this.bases.health[i] / Sim.S.baseHealth
         const flashColor = Sim.Bases.isNeutralBase(i)
-          ? playerColor(this.bases.capturePlayer[i])
-          : playerColor(1 - this.bases.owner[i])
+          ? this.srgbColors[this.bases.capturePlayer[i]]
+          : this.srgbColors[1 - this.bases.owner[i]]
 
         if (alpha === 0) {
           this.flashTau[i] = 0
@@ -494,7 +504,9 @@ export class MapView implements View {
   ): THREE.ShaderMaterial {
     return new THREE.RawShaderMaterial({
       uniforms: {
-        colors: { value: colors },
+        colors: {
+          value: colors.map((c) => new THREE.Color().copyLinearToSRGB(c)),
+        },
         thresholds: { value: thresholds },
         params: { value: params },
       },
@@ -578,6 +590,74 @@ export class UserSelectionView implements View {
       this.mesh.visible = true
     } else {
       this.mesh.visible = false
+    }
+  }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// Markers
+
+export class UserMarkerView implements View {
+  private pointData: Float32Array
+  private geometries: THREE.BufferGeometry[]
+  // Physics
+  private lastMarker: Vec2 | null = null
+  private offset: Vec2[] = Array.from({ length: S.markerParticles }, () => [
+    0, 0,
+  ])
+  private velocity: Vec2[] = Array.from({ length: S.markerParticles }, () => [
+    0, 0,
+  ])
+  private lifetime: number[] = Array(S.markerParticles).fill(0)
+
+  constructor(private players: Sim.Players, scene: THREE.Scene) {
+    this.pointData = new Float32Array(3 * S.markerParticles).fill(S.zMarker)
+    this.geometries = [S.primary, S.secondary].map((color) => {
+      const g = new THREE.BufferGeometry()
+      g.setAttribute("position", new THREE.BufferAttribute(this.pointData, 3))
+      g.setDrawRange(0, 0)
+      const m = new THREE.PointsMaterial({ color: color, size: 1 })
+      scene.add(new THREE.Points(g, m))
+      return g
+    })
+  }
+
+  update(dt: number): void {
+    const marker = this.players.userMarker
+    if (marker !== null) {
+      if (this.lastMarker === null || !v2Equal(this.lastMarker, marker)) {
+        this.lastMarker = [...marker]
+        for (let i = 0; i < S.markerParticles; i++) {
+          this.offset[i] = [0, 0]
+          this.velocity[i] = [0, 0]
+          this.lifetime[i] = 0.5 * Math.random()
+        }
+      } else {
+        for (let i = 0; i < S.markerParticles; i++) {
+          this.lifetime[i] -= dt
+          let offset = this.offset[i]
+          if (this.lifetime[i] <= 0) {
+            this.lifetime[i] = 0.3 + 0.2 * Math.random()
+            offset = this.offset[i] = [0, 0]
+            this.velocity[i] = [0.5 * randn(), 0.5 * randn()]
+          } else {
+            offset[0] += dt * this.velocity[i][0]
+            offset[1] += dt * this.velocity[i][1]
+          }
+          this.pointData[3 * i] = marker[0] + offset[0]
+          this.pointData[3 * i + 1] = marker[1] + offset[1]
+        }
+      }
+      this.geometries.forEach((g, i) => {
+        g.getAttribute("position").needsUpdate = true
+        g.setDrawRange(
+          Math.floor((S.markerParticles * i) / this.geometries.length),
+          Math.floor((S.markerParticles * (i + 1)) / this.geometries.length)
+        )
+      })
+    } else {
+      this.geometries.forEach((g) => g.setDrawRange(0, 0))
+      this.lastMarker = null
     }
   }
 }

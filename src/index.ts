@@ -1,5 +1,5 @@
 import * as THREE from "three"
-import { Image32 } from "./common"
+import { Image32, Vec2 } from "./common"
 import * as Maps from "./maps"
 import * as Sim from "./sim"
 import * as Views from "./ui/views"
@@ -61,6 +61,20 @@ async function loadLevel(name: string): Promise<Maps.Level> {
   return data as Maps.Level
 }
 
+function screenToWorld(
+  renderer: THREE.WebGLRenderer,
+  camera: THREE.OrthographicCamera,
+  z: Vec2
+): Vec2 {
+  const rect = renderer.domElement.getBoundingClientRect()
+  const position = new THREE.Vector3(
+    ((z[0] - rect.left) / rect.width) * 2 - 1,
+    ((rect.top - z[1]) / rect.height) * 2 + 1,
+    0
+  ).unproject(camera)
+  return [position.x, position.y]
+}
+
 function updateCamera(
   camera: THREE.OrthographicCamera,
   sim: HTMLElement,
@@ -119,6 +133,7 @@ async function load() {
       scene,
       textures.selection
     ),
+    new Views.UserMarkerView(sim.players, scene),
   ]
 
   // Render and physics loop
@@ -186,14 +201,14 @@ async function load() {
   page.buttonRestart.addEventListener("click", () => {
     window.location.reload()
   })
+  renderer.domElement.addEventListener("contextmenu", (e: MouseEvent) => {
+    if (!(e.shiftKey || e.ctrlKey || e.altKey || e.metaKey)) {
+      e.preventDefault()
+      sim.userSetMarker(screenToWorld(renderer, camera, [e.clientX, e.clientY]))
+    }
+  })
   renderer.domElement.addEventListener("click", (e: MouseEvent) => {
-    const rect = renderer.domElement.getBoundingClientRect()
-    const position = new THREE.Vector3(
-      ((e.clientX - rect.left) / rect.width) * 2 - 1,
-      ((rect.top - e.clientY) / rect.height) * 2 + 1,
-      0
-    ).unproject(camera)
-    sim.userSelect([position.x, position.y])
+    sim.userSelect(screenToWorld(renderer, camera, [e.clientX, e.clientY]))
   })
 }
 
