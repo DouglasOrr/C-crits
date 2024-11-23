@@ -1,4 +1,5 @@
 import * as Sim from "../sim"
+import * as Crasm from "../crasm"
 
 function formatValue(value: any): string {
   if (typeof value === "number") {
@@ -22,6 +23,7 @@ export class Page {
   buttonUpload: HTMLElement
   buttonRestart: HTMLElement
   inputSearch: HTMLElement
+  searchResults: HTMLElement
   editor: HTMLTextAreaElement
   output: HTMLElement
   debug: HTMLElement
@@ -37,6 +39,7 @@ export class Page {
     this.buttonUpload = document.getElementById("button-upload")!
     this.buttonRestart = document.getElementById("button-restart")!
     this.inputSearch = document.getElementById("input-search")!
+    this.searchResults = document.getElementById("search-results")!
     this.editor = document.getElementById("editor")! as HTMLTextAreaElement
     this.output = document.getElementById("output")!
     this.debug = document.getElementById("debug")!
@@ -49,6 +52,37 @@ export class Page {
       if (event.ctrlKey && event.key === "Enter") {
         this.buttonUpload.click()
       }
+    })
+
+    this.inputSearch.addEventListener("focus", (e) => {
+      this.searchResults.style.display = "block"
+    })
+    this.inputSearch.addEventListener("blur", (e) => {
+      this.searchResults.style.display = "none"
+    })
+
+    this.inputSearch.addEventListener("input", (e) => {
+      const input = e.target as HTMLInputElement
+      const query = input.value.trim()
+      const results = query === "" ? [] : Crasm.searchDocs(query).slice(0, 6)
+
+      // const searchResults = document.getElementById("search-results")!
+      this.searchResults.style.width = `${input.clientWidth}px`
+      this.searchResults.style.top = `${input.offsetTop + input.offsetHeight}px`
+      this.searchResults.style.left = `${input.offsetLeft}px`
+      this.searchResults.replaceChildren(
+        ...results.map((result) => {
+          const spec = document.createElement("code")
+          spec.textContent = result.spec
+          const description = document.createElement("p")
+          description.textContent = result.description
+          const div = document.createElement("div")
+          div.appendChild(spec)
+          div.appendChild(description)
+          return div
+        })
+      )
+      this.searchResults.style.display = results.length > 0 ? "block" : "none"
     })
   }
 

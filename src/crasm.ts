@@ -34,28 +34,167 @@ const UnaryControlFlow = [
   ["register", "literal"],
   ["register", "literal"],
 ]
-export const OpSpecs = new Map<string, (string | string[])[]>([
+export const OpSpecs = [
   // Arithmetic
-  ["MOV", UnaryArithmetic],
-  ["ADD", BinaryArithmetic],
-  ["SUB", BinaryArithmetic],
-  ["MUL", BinaryArithmetic],
-  ["DIV", BinaryArithmetic],
-  ["MOD", BinaryArithmetic],
-  ["RAND", ["register"]],
+  {
+    code: Opcode.MOV,
+    syntax: UnaryArithmetic,
+    spec: "in $out",
+    description: "copy the value (a register or literal) from in to $out",
+  },
+  {
+    code: Opcode.ADD,
+    syntax: BinaryArithmetic,
+    spec: "a b $out",
+    description: "add a to b (element-wise) and store in $out",
+  },
+  {
+    code: Opcode.SUB,
+    syntax: BinaryArithmetic,
+    spec: "a b $out",
+    description: "subtract b from a (element-wise) and store in $out",
+  },
+  {
+    code: Opcode.MUL,
+    syntax: BinaryArithmetic,
+    spec: "a b $out",
+    description: "multiply a with b (element-wise) and store in $out",
+  },
+  {
+    code: Opcode.DIV,
+    syntax: BinaryArithmetic,
+    spec: "a b $out",
+    description: "divide a by b (element-wise) and store in $out",
+  },
+  {
+    code: Opcode.MOD,
+    syntax: BinaryArithmetic,
+    spec: "a b $out",
+    description: "take the modulo of a by b (element-wise) and store in $out",
+  },
+  {
+    code: Opcode.RAND,
+    syntax: ["register"],
+    spec: "$out",
+    description: "store a random number between 0 and 1 in $out",
+  },
   // Arrays
-  ["PUSH", BinaryArithmetic],
-  ["GET", BinaryArithmetic],
-  ["VLEN", UnaryArithmetic],
-  ["VDIR", UnaryArithmetic],
-  ["UNITV", UnaryArithmetic],
+  {
+    code: Opcode.PUSH,
+    syntax: BinaryArithmetic,
+    spec: "a0 a1 $out",
+    description: "concatenate or append a1 to a0 and store in $out",
+  },
+  {
+    code: Opcode.GET,
+    syntax: BinaryArithmetic,
+    spec: "array i $out",
+    description: "get the value at index i from array and store in $out",
+  },
+  {
+    code: Opcode.VLEN,
+    syntax: UnaryArithmetic,
+    spec: "array $out",
+    description:
+      "calculate the Euclidean vector length of array and store in $out",
+  },
+  {
+    code: Opcode.VDIR,
+    syntax: UnaryArithmetic,
+    spec: "array $out",
+    description:
+      "calculate the vector direction in radians (0 = north, 1.57 = east) from array and store in $out",
+  },
+  {
+    code: Opcode.UNITV,
+    syntax: UnaryArithmetic,
+    spec: "angle $out",
+    description: "calculate the unit vector for angle and store in $out",
+  },
   // Control flow
-  ["JMP", [["register", "literal"]]],
-  ["JEZ", UnaryControlFlow],
-  ["JLZ", UnaryControlFlow],
-  ["JGZ", UnaryControlFlow],
-  ["RET", []],
-])
+  {
+    code: Opcode.JMP,
+    syntax: [["register", "literal"]],
+    spec: "@label",
+    description: "jump to @label",
+  },
+  {
+    code: Opcode.JEZ,
+    syntax: UnaryControlFlow,
+    spec: "value @label",
+    description: "jump to @label if value == 0 or null",
+  },
+  {
+    code: Opcode.JLZ,
+    syntax: UnaryControlFlow,
+    spec: "value @label",
+    description: "jump to @label if value < 0",
+  },
+  {
+    code: Opcode.JGZ,
+    syntax: UnaryControlFlow,
+    spec: "value @label",
+    description: "jump to @label if value > 0",
+  },
+  {
+    code: Opcode.RET,
+    syntax: [],
+    spec: "",
+    description: "end execution of the program (for this update tick)",
+  },
+]
+export const RegisterSpecs = [
+  {
+    name: "$state",
+    spec: "@lab|null R/W",
+    description: "entry point for the next update tick",
+  },
+  {
+    name: "$dest",
+    spec: "x,y|null R/W",
+    description: "move towards the coordinates x,y",
+  },
+  {
+    name: "$tgt",
+    spec: "x,y|null R/W",
+    description: "attack x,y if in range (note: takes precedence over $dest)",
+  },
+  {
+    name: "$id",
+    spec: "number R",
+    description: "critter ID (unique, starting from 0)",
+  },
+  {
+    name: "$pos",
+    spec: "x,y R",
+    description: "current position",
+  },
+  {
+    name: "$hlth",
+    spec: "number R",
+    description: "current health",
+  },
+  {
+    name: "$ne",
+    spec: "x,y R",
+    description: "nearest enemy critter position",
+  },
+  {
+    name: "$hb",
+    spec: "x,y R",
+    description: "first (home) base position",
+  },
+  {
+    name: "$eb",
+    spec: "x,y R",
+    description: "enemy base position (not neutral)",
+  },
+  {
+    name: "$mark",
+    spec: "x,y R",
+    description: "user-controlled manual marker position",
+  },
+]
 export type Arg = { register: string } | { literal: Value }
 export type Op = { opcode: Opcode; args: Arg[]; line: number }
 export type Program = { ops: Op[]; labels: { [key: string]: number } }
@@ -179,7 +318,7 @@ function jumpTarget(s: State, arg: Arg): number {
   const value = load(s, arg)
   if (typeof value === "string") {
     const line = s.program.labels[value]
-    if (line === undefined) {
+    if (line === undefined || line === null) {
       throw new RuntimeError(`Unknown label ${value}`, s.op.line)
     }
     return line
@@ -339,6 +478,9 @@ function exprUnitV(s: State, direction: Value): Value {
 // Control flow
 
 function exprEZ(s: State, a: Value): boolean {
+  if (a === null) {
+    return true
+  }
   if (typeof a === "number") {
     return a === 0
   }
@@ -433,6 +575,12 @@ export function parseLiteral(token: Token, source: string[]): Value {
 }
 
 function parseLine(source: string[], line: number, program: Program): void {
+  const opToSpec = new Map(
+    OpSpecs.map((s: { code: Opcode; syntax: any }) => [
+      Opcode[s.code],
+      s.syntax,
+    ])
+  )
   const tokens = tokenise(source[line], line)
   if (tokens.length == 0) {
     // skip empty lines
@@ -458,7 +606,7 @@ function parseLine(source: string[], line: number, program: Program): void {
         return { literal: parseLiteral(token, source) }
       }
     })
-    const spec = OpSpecs.get(opcodeKey)!
+    const spec = opToSpec.get(opcodeKey)!
     if (spec.length !== args.length) {
       throw new ParseError(
         `${Opcode[opcode]} expects ${spec.length} arguments, got ${args.length}`,
@@ -492,4 +640,59 @@ export function parse(source: string): Program {
     parseLine(lines, line, program)
   }
   return program
+}
+
+// Documentation
+
+export type SearchResult = { spec: string; description: string }
+
+export function searchDocs(query: string): SearchResult[] {
+  query = query.toLowerCase()
+  const results: SearchResult[] = []
+  const added = new Set<string>()
+  // Exact match on opcodes
+  for (const s of OpSpecs) {
+    if (Opcode[s.code].toLowerCase().startsWith(query)) {
+      results.push({
+        spec: `${Opcode[s.code]} ${s.spec}`,
+        description: s.description,
+      })
+      added.add(Opcode[s.code])
+    }
+  }
+  // Exact match on registers
+  for (const s of RegisterSpecs) {
+    if (s.name.startsWith(query) || s.name.replace("$", "").startsWith(query)) {
+      results.push({
+        spec: `${s.name} ${s.spec}`,
+        description: s.description,
+      })
+      added.add(s.name)
+    }
+  }
+  // Fall back to searching descriptions
+  if (results.length < 3 && query.length >= 3) {
+    for (const s of OpSpecs) {
+      if (
+        s.description.toLowerCase().includes(query) &&
+        !added.has(Opcode[s.code])
+      ) {
+        results.push({
+          spec: `${Opcode[s.code]} ${s.spec}`,
+          description: s.description,
+        })
+        added.add(Opcode[s.code])
+      }
+    }
+    for (const s of RegisterSpecs) {
+      if (s.description.toLowerCase().includes(query) && !added.has(s.name)) {
+        results.push({
+          spec: `${s.name} ${s.spec}`,
+          description: s.description,
+        })
+        added.add(s.name)
+      }
+    }
+  }
+  return results
 }

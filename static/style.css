@@ -4,6 +4,12 @@ body {
   font-family: monospace;
   color: #fff;
 }
+code {
+  background-color: #444;
+  border: #111 1px solid;
+  padding: 0.25em;
+  border-radius: 0.25em;
+}
 #root {
   display: grid;
   grid-template-columns: 2fr 1fr;
@@ -67,6 +73,23 @@ body {
   background-color: #222;
   color: #fff;
   border: 1px solid #666;
+  font-family: monospace;
+}
+#search-results {
+  position: absolute;
+  border: 1px solid #666;
+  background-color: #222;
+  z-index: 1000;
+}
+#search-results > div {
+  padding: 0.5em;
+  margin-top: 0.5em;
+  border-bottom: 1px solid #666;
+  font-size: small;
+}
+#search-results p {
+  margin-top: 1em;
+  margin-bottom: 0.5em;
 }
 #editor {
   resize: none;
