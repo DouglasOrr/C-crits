@@ -13,7 +13,7 @@ vlen $ne_direction $d
 sub $d 10 $d
 jlz $d @attack
 @advance
-mov $ne $dest
+mov $ne $dst
 ```
 
 **Comments**
@@ -21,7 +21,7 @@ mov $ne $dest
 Comments start with `;` and continue until the end of the line.
 
 ```
-mov 1,2 $dest ; set dest to [1, 2]
+mov 1,2 $dst ; set dest to [1, 2]
 ; empty line with comment
 ```
 
@@ -30,7 +30,7 @@ mov 1,2 $dest ; set dest to [1, 2]
 A statement is a instruction followed by arguments. Each argument can be a **literal** or a **register** reference.
 
 ```
-mov 1,2 $dest  ; instruction `mov`, literal `[1,2]`, register `dest`
+mov 1,2 $dst  ; instruction `mov`, literal `[1,2]`, register `dest`
 ```
 
 **Labels**
@@ -39,7 +39,7 @@ A label is a name preceded by `@`, such as `@return_home`. Labels are used to ma
 
 ```
 @return_home
-mov $home $dest
+mov $home $dst
 ret
 ```
 
@@ -59,7 +59,7 @@ A literal can be:
 Copy the value of the first argument to the second argument.
 
 ```
-mov 1,2 $dest ; copy the literal `[1,2]` to the register `dest`
+mov 1,2 $dst ; copy the literal `[1,2]` to the register `dest`
 ```
 
 **`add`**, **`sub`**, **`mul`**, **`div`**, **`mod`**
@@ -152,16 +152,16 @@ jez $patience @return_home  ; jump to `@return_home` if $patience is 0 (or 0,0)
 
 ## Special registers
 
-| Register     | Direction | Type               | Description                                                                                         |
-| ------------ | --------- | ------------------ | --------------------------------------------------------------------------------------------------- |
-| **`$state`** | R/W       | `@label` \| `null` | start point for the next update                                                                     |
-| **`$dest`**  | R/W       | `x,y` \| `null`    | set to non-null to move to that position                                                            |
-| **`$tgt`**   | R/W       | `x,y` \| `null`    | set to non-null to attack that position, if currently in range (this takes precedence over `$dest`) |
-|              |           |                    |                                                                                                     |
-| **`$id`**    | R         | `number`           | critter ID (unique, starting from 0)                                                                |
-| **`$pos`**   | R         | `number`           | current critter position                                                                            |
-| **`$ne`**    | R         | `x,y`              | nearest enemy critter position                                                                      |
-| **`$hb`**    | R         | `x,y`              | home base position                                                                                  |
-| **`$eb`**    | R         | `x,y`              | enemy base position                                                                                 |
-| **`$mark`**  | R         | `x,y` \| `null`    | user-controlled marker                                                                              |
-| **`$hlth`**  | R         | `number`           | critter health                                                                                      |
+| Register     | Direction | Type               | Description                                                                                        |
+| ------------ | --------- | ------------------ | -------------------------------------------------------------------------------------------------- |
+| **`$state`** | R/W       | `@label` \| `null` | start point for the next update                                                                    |
+| **`$dst`**   | R/W       | `x,y` \| `null`    | set to non-null to move to that position                                                           |
+| **`$tgt`**   | R/W       | `x,y` \| `null`    | set to non-null to attack that position, if currently in range (this takes precedence over `$dst`) |
+|              |           |                    |                                                                                                    |
+| **`$id`**    | R         | `number`           | critter ID (unique, starting from 0)                                                               |
+| **`$pos`**   | R         | `number`           | current critter position                                                                           |
+| **`$ne`**    | R         | `x,y`              | nearest enemy critter position                                                                     |
+| **`$hb`**    | R         | `x,y`              | home base position                                                                                 |
+| **`$eb`**    | R         | `x,y`              | enemy base position                                                                                |
+| **`$mark`**  | R         | `x,y` \| `null`    | user-controlled marker                                                                             |
+| **`$hlth`**  | R         | `number`           | critter health                                                                                     |

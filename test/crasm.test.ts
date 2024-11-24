@@ -9,22 +9,22 @@ import {
 
 describe("tokenise", () => {
   it("should split a line into tokens", () => {
-    expect(tokenise("MOV 12,50 $DEST", 100)).toEqual([
+    expect(tokenise("MOV 12,50 $DST", 100)).toEqual([
       { t: "MOV", p: { line: 100, column: 0 } },
       { t: "12,50", p: { line: 100, column: 4 } },
-      { t: "$DEST", p: { line: 100, column: 10 } },
+      { t: "$DST", p: { line: 100, column: 10 } },
     ])
-    expect(tokenise(" MOV 12,50  $DEST ", 200)).toEqual([
+    expect(tokenise(" MOV 12,50  $DST ", 200)).toEqual([
       { t: "MOV", p: { line: 200, column: 1 } },
       { t: "12,50", p: { line: 200, column: 5 } },
-      { t: "$DEST", p: { line: 200, column: 12 } },
+      { t: "$DST", p: { line: 200, column: 12 } },
     ])
   })
 
   it("should strip comments", () => {
     expect(
-      tokenise("MOV $SRC $DEST; this comment", 100).map((t) => t.t)
-    ).toEqual(["MOV", "$SRC", "$DEST"])
+      tokenise("MOV $SRC $DST; this comment", 100).map((t) => t.t)
+    ).toEqual(["MOV", "$SRC", "$DST"])
   })
 
   it("should handle empty lines", () => {
@@ -53,12 +53,12 @@ describe("parseLiteral", () => {
 describe("parse", () => {
   it("should report errors", () => {
     const badCode = [
-      "@foo mov 1 $dest", // code after label
+      "@foo mov 1 $dst", // code after label
       "moo 1", // bad opcode
       "mov $a 1", // dest is literal
       "mov 1.0,a $tgt", // bad array literal
-      "mov bad $dest", // bad literal
-      "mov $src $dest $tgt", // too many args
+      "mov bad $dst", // bad literal
+      "mov $src $dst $tgt", // too many args
     ]
     for (let badLine = 0; badLine < badCode.length; badLine++) {
       const code = badCode
@@ -82,10 +82,10 @@ describe("parse", () => {
 test("parse--run", () => {
   const program = parse(`
     add 2,0 10,50 $tmp
-    mov $tmp $dest
+    mov $tmp $dst
     ret
   `)
   const memory = {} as Memory
   run(program, memory, 100, null)
-  expect(memory["$dest"]).toEqual([12, 50])
+  expect(memory["$dst"]).toEqual([12, 50])
 })

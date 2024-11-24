@@ -4,12 +4,12 @@ vlen $d $d
 sub $d 10 $d
 jlz $d @defend
 
-mov $hb $dest
+mov $hb $dst
 mov null $tgt
 ret
 
 @defend
-mov $ne $dest
+mov $ne $dst
 mov $ne $tgt
 ret
 `

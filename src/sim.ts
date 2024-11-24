@@ -432,11 +432,11 @@ export class Players {
 class Memory {
   // Outputs
   $state: string | null = null
-  $dest: Vec2 | null = null
+  $dst: Vec2 | null = null
   $tgt: Vec2 | null = null
   // Special
   $passwd: number | null = null
-  $posw: number = 0
+  $pos_we: number = 0
   // Inputs
   $id: number = -1
   $pos: Vec2 = [0, 0]
@@ -518,7 +518,7 @@ export class Crits {
         this.validatePassword(mem, i)
       } catch (e) {
         if (e instanceof Crasm.RuntimeError) {
-          this.error[i] = e
+          this.setError(i, e.message, e.line)
         } else {
           throw e
         }
@@ -532,27 +532,27 @@ export class Crits {
             return null
           }
           if (!isVec2(value)) {
-            this.error[i] = {
-              message: `${key} should be null or x,y but got ${value}`,
-            }
+            this.setError(i, `${key} should be null or x,y but got ${value}`)
             return null
           }
           if (!Maps.inBounds(value, map)) {
-            this.error[i] = {
-              message:
-                `${key} should be within the map [0 <= x < ${map.width}, 0 <= y < ${map.height}]` +
-                ` but got ${value}`,
-            }
+            this.setError(
+              i,
+              `${key} should be within the map [0 <= x < ${map.width}, 0 <= y < ${map.height}]` +
+                ` but got ${value}`
+            )
             return null
           }
           return value
         }
-        this.destination[i] = readVec2(mem, "$dest")
+        this.destination[i] = readVec2(mem, "$dst")
         this.target[i] = readVec2(mem, "$tgt")
-        if (mem.$posw !== 0) {
-          const pos = readVec2(mem, "$pos")
-          if (pos !== null) {
+        const pos = readVec2(mem, "$pos")
+        if (pos !== null && !v2Equal(this.position[i], pos)) {
+          if (mem.$pos_we !== 0) {
             this.position[i] = pos
+          } else {
+            this.setError(i, "$pos is not Write Enabled")
           }
         }
       }
@@ -575,19 +575,30 @@ export class Crits {
   }
 
   private validatePassword(mem: Memory, i: number) {
-    if (mem.$passwd !== null && mem.$passwd !== S.password) {
-      mem.$posw = 0
+    if (mem.$passwd !== S.password) {
       if (mem.$passwd === null) {
-        // OK
+        // No attempt - no need to show an error
       } else if (
         typeof mem.$passwd !== "number" ||
         mem.$passwd < 10 ||
         mem.$passwd >= 100
       ) {
-        this.error[i] = { message: "(\\d\\d) bad password" }
+        this.setError(i, "Match /\\d\\d/ failed - bad password")
       } else {
-        this.error[i] = { message: "Bad password" }
+        this.setError(i, "Bad password")
       }
+      // If the password is wrong, lock $pos_we
+      if (mem.$pos_we !== 0) {
+        this.setError(i, "$pos_we is locked")
+        mem.$pos_we = 0
+      }
+    }
+  }
+
+  private setError(i: number, message: string, line?: number): void {
+    // Only report the first error
+    if (this.error[i] === null) {
+      this.error[i] = { message, line }
     }
   }
 

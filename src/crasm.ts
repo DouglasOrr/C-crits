@@ -150,14 +150,14 @@ export const RegisterSpecs = [
     description: "entry point for the next update tick",
   },
   {
-    name: "$dest",
+    name: "$dst",
     spec: "x,y|null R/W",
     description: "move towards the coordinates x,y",
   },
   {
     name: "$tgt",
     spec: "x,y|null R/W",
-    description: "attack x,y if in range (note: takes precedence over $dest)",
+    description: "attack x,y if in range (note: takes precedence over $dst)",
   },
   {
     name: "$id",
@@ -166,7 +166,7 @@ export const RegisterSpecs = [
   },
   {
     name: "$pos",
-    spec: "x,y R",
+    spec: "x,y R/",
     description: "current position",
   },
   {
