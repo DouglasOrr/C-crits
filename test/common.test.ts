@@ -5,6 +5,8 @@ import {
   distance,
   v2Add,
   v2Equal,
+  mostFrequent,
+  Vec2,
 } from "../src/common"
 
 const PI = Math.PI
@@ -47,5 +49,17 @@ describe("v2Equal,v2Add", () => {
   it("should behave like vector values", () => {
     expect(v2Equal(v2Add([10, 20], [5, -6]), [15, 14])).toBe(true)
     expect(v2Equal(v2Add([0, 0], [1, 2]), [1, 2.1])).toBe(false)
+  })
+})
+
+describe("mostFrequent", () => {
+  it("should return the most frequent item in the array", () => {
+    expect(mostFrequent([1, 2, 3, 1, 1, 2])).toBe(1)
+    expect(
+      v2Equal(
+        mostFrequent([[10, 20], [100], [200], [10, 20]]) as Vec2,
+        [10, 20]
+      )
+    ).toBe(true)
   })
 })

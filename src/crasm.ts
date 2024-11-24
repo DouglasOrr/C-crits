@@ -2,6 +2,8 @@
 
 export type Value = null | number | string | number[]
 export type Memory = { [key: string]: Value }
+export type CommsBuffer = { [key: string]: { value: Value; priority: number } }
+export type Outcome = { comms: CommsBuffer; cycles: number; timeout: boolean }
 export enum Opcode {
   // Arithmetic
   MOV,
@@ -23,6 +25,8 @@ export enum Opcode {
   JLZ,
   JGZ,
   RET,
+  // Other
+  SEND,
 }
 const UnaryArithmetic = [["register", "literal"], "register"]
 const BinaryArithmetic = [
@@ -142,6 +146,15 @@ export const OpSpecs = [
     spec: "",
     description: "end execution of the program (for this update tick)",
   },
+  // Other
+  {
+    code: Opcode.SEND,
+    syntax: [["register", "literal"], ["register", "literal"], "register"],
+    spec: "priority in $out",
+    description:
+      "send 'in' to all friendly critters, arriving in $out at next update" +
+      " (if multiple critters send to the same $out, the modal max-priority value is delivered)",
+  },
 ]
 export const RegisterSpecs = [
   {
@@ -152,12 +165,13 @@ export const RegisterSpecs = [
   {
     name: "$dst",
     spec: "x,y|null R/W",
-    description: "move towards the coordinates x,y",
+    description: "move towards the destination coordinates x,y",
   },
   {
     name: "$tgt",
     spec: "x,y|null R/W",
-    description: "attack x,y if in range (note: takes precedence over $dst)",
+    description:
+      "attack target x,y if in range (note: takes precedence over $dst)",
   },
   {
     name: "$id",
@@ -190,6 +204,11 @@ export const RegisterSpecs = [
     description: "enemy base position (not neutral)",
   },
   {
+    name: "$nnb",
+    spec: "x,y R",
+    description: "nearest neutral base position (excluding player-owned)",
+  },
+  {
     name: "$mark",
     spec: "x,y R",
     description: "user-controlled manual marker position",
@@ -210,14 +229,17 @@ export function run(
   memory: Memory,
   cycleLimit: number,
   startLabel: string | null
-): void {
+): Outcome {
   const s = new State(program, memory)
-  let cycleCount = 0
   if (startLabel !== null && program.labels[startLabel] !== undefined) {
     s.pc = program.labels[startLabel]
   }
-  while (s.pc < program.ops.length && cycleCount < cycleLimit) {
-    cycleCount += 1
+  while (s.pc < program.ops.length) {
+    s.cycleCount += 1
+    if (s.cycleCount > cycleLimit) {
+      s.timeout = true
+      break
+    }
     s.op = program.ops[s.pc]
     switch (s.op.opcode) {
       // Arithmetic
@@ -275,10 +297,15 @@ export function run(
       case Opcode.RET:
         s.pc = program.ops.length
         break
+      // Other
+      case Opcode.SEND:
+        runSend(s)
+        break
       default:
         throw new AssertionError()
     }
   }
+  return { comms: s.comms, cycles: s.cycleCount, timeout: s.timeout }
 }
 
 export class RuntimeError extends Error {
@@ -291,14 +318,18 @@ export class AssertionError extends Error {}
 
 class State {
   pc: number = 0
+  cycleCount: number = 0
+  timeout: boolean = false
   op: Op = { opcode: Opcode.RET, args: [], line: -1 }
+  comms: CommsBuffer = {}
 
   constructor(public program: Program, public memory: Memory) {}
 }
 
 function load(s: State, arg: Arg): Value {
   if ("register" in arg) {
-    return s.memory[arg.register]
+    const value = s.memory[arg.register]
+    return value === undefined ? null : value
   }
   if ("literal" in arg) {
     return arg.literal
@@ -352,6 +383,29 @@ function runConditionalJump(
   } else {
     s.pc += 1
   }
+}
+
+function runSend(s: State): void {
+  // Load
+  const priority = load(s, s.op.args[0])
+  if (typeof priority !== "number") {
+    throw new RuntimeError(
+      `SEND priority expected number, got ${priority}`,
+      s.op.line
+    )
+  }
+  const value = load(s, s.op.args[1])
+  if (!("register" in s.op.args[2])) {
+    throw new AssertionError()
+  }
+  const out = s.op.args[2].register
+
+  // Execute
+  const current = s.comms[out]
+  if (current === undefined || priority >= current.priority) {
+    s.comms[out] = { value, priority }
+  }
+  s.pc += 1
 }
 
 // Arithmetic

@@ -51,3 +51,18 @@ export function randn(): number {
 }
 
 export type Image32 = { width: number; height: number; data: Uint32Array }
+
+export function mostFrequent<T>(items: T[]): T {
+  const counts = new Map<T, number>()
+  let maxCount = 0
+  let maxItem = items[0]
+  for (const item of items) {
+    const count = (counts.get(item) ?? 0) + 1
+    counts.set(item, count)
+    if (count > maxCount) {
+      maxCount = count
+      maxItem = item
+    }
+  }
+  return maxItem
+}

@@ -4,6 +4,7 @@ import {
   clamp,
   distance,
   isVec2,
+  mostFrequent,
   v2Add,
   v2Equal,
   v2Floor,
@@ -166,6 +167,21 @@ export class Bases {
 
   static isNeutralBase(index: number): boolean {
     return index >= 2
+  }
+
+  findNearestNeutralBase(position: Vec2, player: number): Vec2 | null {
+    let nearestDistance = Infinity
+    let nearest = null
+    this.forEachIndex((i) => {
+      if (Bases.isNeutralBase(i) && this.owner[i] !== player) {
+        const d = distance(position, this.position[i])
+        if (d < nearestDistance) {
+          nearestDistance = d
+          nearest = this.position[i]
+        }
+      }
+    })
+    return nearest
   }
 
   explode(p: Vec2) {
@@ -335,6 +351,8 @@ export class Bases {
 export class Players {
   nextId: number[]
   program: Crasm.Program[]
+  commsIn: { [key: string]: Crasm.Value }[]
+  commsOut: { [key: string]: { priority: number; values: Crasm.Value[] } }[]
   errorsSinceLastLoad: number[]
   // User control
   userMarker: Vec2 | null = null
@@ -345,6 +363,12 @@ export class Players {
     this.nextId = Array(n).fill(0)
     this.errorsSinceLastLoad = Array(n).fill(0)
     this.program = Array(n).fill(Crasm.emptyProgram())
+    this.commsIn = Array.from({ length: n }, () => {
+      return {}
+    })
+    this.commsOut = Array.from({ length: n }, () => {
+      return {}
+    })
   }
 
   get length(): number {
@@ -396,7 +420,31 @@ export class Players {
     }
   }
 
-  programUpdate(crits: Crits): void {
+  preProgramUpdate(): void {
+    this.forEachIndex((i) => {
+      this.commsIn[i] = {}
+      for (const [key, v] of Object.entries(this.commsOut[i])) {
+        this.commsIn[i][key] = mostFrequent(v.values)
+      }
+      this.commsOut[i] = {}
+    })
+  }
+
+  programSend(
+    i: number,
+    key: string,
+    priority: number,
+    value: Crasm.Value
+  ): void {
+    const entry = this.commsOut[i][key]
+    if (entry === undefined || entry.priority < priority) {
+      this.commsOut[i][key] = { priority, values: [value] }
+    } else if (entry.priority === priority) {
+      entry.values.push(value)
+    }
+  }
+
+  postProgramUpdate(crits: Crits): void {
     // Selection (debug)
     if (this.userSelection !== null) {
       if (this.userSelectionId !== crits.id[this.userSelection]) {
@@ -443,6 +491,7 @@ class Memory {
   $ne: Vec2 | null = null
   $hb: Vec2 = [0, 0]
   $eb: Vec2 | null = null
+  $nnb: Vec2 | null = null
   $mark: Vec2 | null = null
   $hlth: number = 0
 }
@@ -489,17 +538,30 @@ export class Crits {
 
   // Program
 
+  clearMemory(player: number): void {
+    this.forEachIndex((i) => {
+      if (this.player[i] === player) {
+        this.memory[i] = new Memory()
+      }
+    })
+  }
+
   programUpdate(players: Players, bases: Bases, map: Maps.Map): void {
     this.forEachIndex((i) => {
       const mem = this.memory[i]
       this.error[i] = null
 
       // 1. Prepare the input state
+      Object.assign(mem, players.commsIn[this.player[i]])
       mem.$id = this.id[i]
       mem.$pos = [...this.position[i]]
       mem.$hb = bases.position[this.player[i]]
       if (this.player[i] <= 1) {
         mem.$eb = bases.position[1 - this.player[i]]
+        mem.$nnb = bases.findNearestNeutralBase(
+          this.position[i],
+          this.player[i]
+        )
       }
       mem.$ne = this.findNearestEnemy(i)
       mem.$hlth = this.health[i]
@@ -509,13 +571,27 @@ export class Crits {
 
       // 2. Run the user program
       try {
-        Crasm.run(
+        const outcome = Crasm.run(
           players.program[this.player[i]],
           mem as unknown as Crasm.Memory,
           S.cycleLimit,
           mem.$state
         )
+        // 3. Take actions
         this.validatePassword(mem, i)
+        if (this.error[i] === null) {
+          this.runProgramActions(i, map)
+          Object.entries(outcome.comms).forEach(([key, v]) => {
+            players.programSend(this.player[i], key, v.priority, v.value)
+          })
+        }
+        // comes last - so we still execute the actions if there's a timeout
+        if (outcome.timeout) {
+          this.setError(
+            i,
+            `(Non-fatal) exceeded timeout of ${S.cycleLimit} cycles`
+          )
+        }
       } catch (e) {
         if (e instanceof Crasm.RuntimeError) {
           this.setError(i, e.message, e.line)
@@ -523,40 +599,40 @@ export class Crits {
           throw e
         }
       }
-
-      // 3. Copy output memory to command state
-      if (this.error[i] === null) {
-        const readVec2 = (mem: Memory, key: keyof Memory): Vec2 | null => {
-          const value = mem[key]
-          if (value === null) {
-            return null
-          }
-          if (!isVec2(value)) {
-            this.setError(i, `${key} should be null or x,y but got ${value}`)
-            return null
-          }
-          if (!Maps.inBounds(value, map)) {
-            this.setError(
-              i,
-              `${key} should be within the map [0 <= x < ${map.width}, 0 <= y < ${map.height}]` +
-                ` but got ${value}`
-            )
-            return null
-          }
-          return value
-        }
-        this.destination[i] = readVec2(mem, "$dst")
-        this.target[i] = readVec2(mem, "$tgt")
-        const pos = readVec2(mem, "$pos")
-        if (pos !== null && !v2Equal(this.position[i], pos)) {
-          if (mem.$pos_we !== 0) {
-            this.position[i] = pos
-          } else {
-            this.setError(i, "$pos is not Write Enabled")
-          }
-        }
-      }
     })
+  }
+
+  private runProgramActions(i: number, map: Maps.Map) {
+    const mem = this.memory[i]
+    const readVec2 = (key: keyof Memory): Vec2 | null => {
+      const value = mem[key]
+      if (value === null) {
+        return null
+      }
+      if (!isVec2(value)) {
+        this.setError(i, `${key} should be null or x,y but got ${value}`)
+        return null
+      }
+      if (!Maps.inBounds(value, map)) {
+        this.setError(
+          i,
+          `${key} should be within the map [0 <= x < ${map.width}, 0 <= y < ${map.height}]` +
+            ` but got ${value}`
+        )
+        return null
+      }
+      return value
+    }
+    this.destination[i] = readVec2("$dst")
+    this.target[i] = readVec2("$tgt")
+    const pos = readVec2("$pos")
+    if (pos !== null && !v2Equal(this.position[i], pos)) {
+      if (mem.$pos_we !== 0) {
+        this.position[i] = pos
+      } else {
+        this.setError(i, "$pos is not Write Enabled")
+      }
+    }
   }
 
   private findNearestEnemy(i: number): Vec2 | null {
@@ -889,11 +965,13 @@ export class Sim {
 
   userLoadProgram(program: string): void {
     this.players.userLoadProgram(program)
+    this.crits.clearMemory(0)
   }
 
   programUpdate(): void {
+    this.players.preProgramUpdate()
     this.crits.programUpdate(this.players, this.bases, this.level.map)
-    this.players.programUpdate(this.crits)
+    this.players.postProgramUpdate(this.crits)
   }
 
   update(): void {
