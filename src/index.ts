@@ -7,6 +7,7 @@ import * as Sound from "./ui/sound"
 import * as Page from "./ui/page"
 import * as Crasm from "./crasm"
 import * as AI from "./ai"
+import * as Monaco from "monaco-editor"
 
 import "@fortawesome/fontawesome-free/js/fontawesome"
 import "@fortawesome/fontawesome-free/js/solid"
@@ -212,6 +213,30 @@ async function load() {
   })
 }
 
+self.MonacoEnvironment = {
+  getWorkerUrl: function (moduleId, label) {
+    if (label === "json") {
+      return "./json.worker.bundle.js"
+    }
+    if (label === "css" || label === "scss" || label === "less") {
+      return "./css.worker.bundle.js"
+    }
+    if (label === "html" || label === "handlebars" || label === "razor") {
+      return "./html.worker.bundle.js"
+    }
+    if (label === "typescript" || label === "javascript") {
+      return "./ts.worker.bundle.js"
+    }
+    return "./editor.worker.bundle.js"
+  },
+}
+
 window.onload = () => {
+  if (window.location.href.includes("test")) {
+    Monaco.editor.create(document.getElementById("editor-container")!, {
+      value: "mov $a $b\nadd $a $b\n",
+    })
+    return
+  }
   load()
 }
