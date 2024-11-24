@@ -1,5 +1,36 @@
-import * as Sim from "../sim"
 import * as Crasm from "../crasm"
+import * as Sim from "../sim"
+
+import { createEditor, PrismEditor } from "prism-code-editor"
+import { languages } from "prism-code-editor/prism"
+
+import "prism-code-editor/layout.css"
+import "prism-code-editor/scrollbar.css"
+import "prism-code-editor/themes/github-dark.css"
+
+languages.crasm = {
+  comment: /;.*/,
+  number: {
+    pattern: /\b[\d.,]+/,
+  },
+  operator: {
+    pattern: new RegExp(
+      "\\b(?:" +
+        Crasm.OpSpecs.map((s) => Crasm.Opcode[s.code].toLowerCase()).join("|") +
+        ")\\b",
+      "i"
+    ),
+  },
+  keyword: {
+    pattern: /null/,
+  },
+  function: {
+    pattern: /@[\w-]+/,
+  },
+  string: {
+    pattern: /\$[\w-]+/,
+  },
+}
 
 function formatValue(value: any): string {
   if (typeof value === "number") {
@@ -24,7 +55,7 @@ export class Page {
   buttonRestart: HTMLElement
   inputSearch: HTMLElement
   searchResults: HTMLElement
-  editor: HTMLTextAreaElement
+  editor: PrismEditor
   output: HTMLElement
   debug: HTMLElement
 
@@ -40,9 +71,10 @@ export class Page {
     this.buttonRestart = document.getElementById("button-restart")!
     this.inputSearch = document.getElementById("input-search")!
     this.searchResults = document.getElementById("search-results")!
-    this.editor = document.getElementById("editor")! as HTMLTextAreaElement
     this.output = document.getElementById("output")!
     this.debug = document.getElementById("debug")!
+
+    this.editor = createEditor("#editor-container", { language: "crasm" })
 
     // Listeners
     document.addEventListener("keydown", (event) => {
@@ -53,6 +85,17 @@ export class Page {
         this.buttonUpload.click()
       }
     })
+    // forcibly override the prism editor handler for Ctrl+Enter
+    this.editor.textarea.addEventListener(
+      "keydown",
+      (event) => {
+        if (event.ctrlKey && event.key === "Enter") {
+          this.buttonUpload.click()
+          event.stopPropagation()
+        }
+      },
+      { capture: true }
+    )
 
     this.inputSearch.addEventListener("focus", (e) => {
       this.searchResults.style.display = "block"
@@ -66,7 +109,6 @@ export class Page {
       const query = input.value.trim()
       const results = query === "" ? [] : Crasm.searchDocs(query).slice(0, 6)
 
-      // const searchResults = document.getElementById("search-results")!
       this.searchResults.style.width = `${input.clientWidth}px`
       this.searchResults.style.top = `${input.offsetTop + input.offsetHeight}px`
       this.searchResults.style.left = `${input.offsetLeft}px`
@@ -105,7 +147,7 @@ export class Page {
         if (data.error !== null) {
           error.textContent = data.error.message + "\n------"
           if (data.error.line !== undefined) {
-            error.textContent = `L${data.error.line} ${error.textContent}`
+            error.textContent = `L${data.error.line + 1} ${error.textContent}`
           }
           this.debug.dataset.status = "error"
         } else {

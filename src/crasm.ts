@@ -520,7 +520,7 @@ export class ParseError extends Error {
 
   show(): string {
     const lines = [
-      `L${this.location.line} ${this.message}`,
+      `L${this.location.line + 1} ${this.message}`,
       `| ${this.source[this.location.line]}`,
       `| ${" ".repeat(this.location.column)}^`,
     ]

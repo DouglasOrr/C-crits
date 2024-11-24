@@ -20,4 +20,6 @@ Maybe:
 
 ---
 
-Icons from FontAwesome (free version).
+Icons from [FontAwesome](https://fontawesome.com/) (free version).
+
+Code editor component, [prism-code-editor](https://github.com/FIameCaster/prism-code-editor).

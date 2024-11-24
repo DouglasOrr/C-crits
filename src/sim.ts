@@ -418,7 +418,7 @@ export class Players {
         if (this.errorsSinceLastLoad[player]++ < S.maxRuntimeErrors) {
           let prefix = player === 0 ? "" : `Player #${player} `
           if (error.line !== undefined) {
-            prefix = `${prefix}L${error.line} `
+            prefix = `${prefix}L${error.line + 1} `
           }
           console.error(
             `${prefix}Critter #${crits.id[i]} runtime error - ${error.message}`

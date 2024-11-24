@@ -98,7 +98,8 @@ async function load() {
   const page = new Page.Page()
   const playSound = await Sound.load()
   const textures = await loadTextures()
-  page.editor.value = window.localStorage.getItem("program") ?? ""
+  page.editor.textarea.value = window.localStorage.getItem("program") ?? ""
+  page.editor.update()
   const renderer = new THREE.WebGLRenderer({ antialias: false })
   renderer.setClearColor(
     new THREE.Color(getComputedStyle(document.body).backgroundColor)

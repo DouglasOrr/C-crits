@@ -41,6 +41,7 @@ code {
 /* Dev panel */
 #col-dev {
   display: grid;
+  height: 100vh;
   grid-template-rows: auto 1fr auto auto;
   border-left: #111 2px solid;
 }
@@ -91,13 +92,14 @@ code {
   margin-top: 1em;
   margin-bottom: 0.5em;
 }
-#editor {
-  resize: none;
-  font-size: large;
-  background-color: #222;
-  color: #fff;
-  border: none;
-  outline: none;
+#editor-container {
+  font-size: small;
+  display: grid;
+  padding: 0;
+  overflow: hidden;
+}
+.prism-code-editor {
+  background-color: #222 !important;
 }
 #output {
   white-space: pre-wrap;

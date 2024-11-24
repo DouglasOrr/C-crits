@@ -4,10 +4,11 @@
     "outDir": "dist",
     // Defaults from `npx tsc --init`
     "target": "es2016",
-    "module": "commonjs",
+    "module": "Preserve",
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
     "strict": true,
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "moduleResolution": "bundler"
   }
 }
