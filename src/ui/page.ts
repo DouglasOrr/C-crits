@@ -1,8 +1,9 @@
 import * as Crasm from "../crasm"
 import * as Sim from "../sim"
 
-import { createEditor, PrismEditor } from "prism-code-editor"
+import { createEditor, languageMap, PrismEditor } from "prism-code-editor"
 import { languages } from "prism-code-editor/prism"
+import { defaultCommands } from "prism-code-editor/commands"
 
 import "prism-code-editor/layout.css"
 import "prism-code-editor/scrollbar.css"
@@ -30,6 +31,9 @@ languages.crasm = {
   string: {
     pattern: /\$[\w-]+/,
   },
+}
+languageMap.crasm = {
+  comments: { line: ";" },
 }
 
 function formatValue(value: any): string {
@@ -74,7 +78,11 @@ export class Page {
     this.output = document.getElementById("output")!
     this.debug = document.getElementById("debug")!
 
-    this.editor = createEditor("#editor-container", { language: "crasm" })
+    this.editor = createEditor(
+      "#editor-container",
+      { language: "crasm" },
+      defaultCommands()
+    )
 
     // Listeners
     document.addEventListener("keydown", (event) => {
@@ -85,7 +93,7 @@ export class Page {
         this.buttonUpload.click()
       }
     })
-    // forcibly override the prism editor handler for Ctrl+Enter
+    // forcibly override the prism editor handler for Ctrl+Enter and (Shift)+Tab
     this.editor.textarea.addEventListener(
       "keydown",
       (event) => {
@@ -93,9 +101,26 @@ export class Page {
           this.buttonUpload.click()
           event.stopPropagation()
         }
+        if (event.key === "Tab") {
+          event.stopPropagation()
+          event.preventDefault()
+          // Manual tab order
+          document
+            .getElementById(
+              event.shiftKey ? "input-search" : "button-play-pause"
+            )
+            ?.focus()
+        }
       },
       { capture: true }
     )
+    // For symmetry with editor:Tab
+    this.buttonPlayPause.addEventListener("keydown", (event) => {
+      if (event.key === "Tab" && event.shiftKey) {
+        this.editor.textarea.focus()
+        event.preventDefault()
+      }
+    })
 
     this.inputSearch.addEventListener("focus", (e) => {
       this.searchResults.style.display = "block"
