@@ -174,7 +174,7 @@ export class Page {
           if (data.error.line !== undefined) {
             error.textContent = `L${data.error.line + 1} ${error.textContent}`
           }
-          this.debug.dataset.status = "error"
+          this.debug.dataset.status = data.error.warning ? "warning" : "error"
         } else {
           this.debug.dataset.status = "none"
         }

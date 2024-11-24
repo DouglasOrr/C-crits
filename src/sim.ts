@@ -21,7 +21,7 @@ export const S = {
 
   // Programming
   maxRuntimeErrors: 10, // #
-  cycleLimit: 100, // #
+  cycleLimit: 500, // #
   password: 42, // #
 
   // Movement
@@ -496,6 +496,8 @@ class Memory {
   $hlth: number = 0
 }
 
+export type RuntimeError = { message: string; line?: number; warning: boolean }
+
 // Crits indices "slots" have the following states:
 //   player == -1                              : empty slot
 //   player >= 0, health > 0                   : alive
@@ -518,9 +520,7 @@ export class Crits {
   memory: Memory[] = Array.from({ length: S.maxCritters }, () => new Memory())
   destination: (Vec2 | null)[] = Array(S.maxCritters).fill(null)
   target: (Vec2 | null)[] = Array(S.maxCritters).fill(null)
-  error: ({ message: string; line?: number } | null)[] = Array(
-    S.maxCritters
-  ).fill(null)
+  error: (RuntimeError | null)[] = Array(S.maxCritters).fill(null)
 
   constructor(private listener: EventListener) {}
 
@@ -589,7 +589,9 @@ export class Crits {
         if (outcome.timeout) {
           this.setError(
             i,
-            `(Non-fatal) exceeded timeout of ${S.cycleLimit} cycles`
+            `(Non-fatal) exceeded timeout of ${S.cycleLimit} cycles`,
+            /*line=*/ undefined,
+            /*warning=*/ true
           )
         }
       } catch (e) {
@@ -671,10 +673,15 @@ export class Crits {
     }
   }
 
-  private setError(i: number, message: string, line?: number): void {
+  private setError(
+    i: number,
+    message: string,
+    line?: number,
+    warning: boolean = false
+  ): void {
     // Only report the first error
     if (this.error[i] === null) {
-      this.error[i] = { message, line }
+      this.error[i] = { message, line, warning }
     }
   }
 
@@ -893,7 +900,7 @@ export class Crits {
 
   update(bullets: Bullets, pathfinder: Maps.Pathfinder): void {
     this.forEachIndex((i) => {
-      if (this.error[i] === null) {
+      if (this.error[i] === null || this.error[i]!.warning) {
         this.attackRecharge[i] = Math.max(this.attackRecharge[i] - S.dt, 0)
         if (
           this.target[i] !== null &&

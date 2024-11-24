@@ -120,3 +120,6 @@ code {
 [data-status="error"] {
   background-color: #600;
 }
+[data-status="warning"] {
+  background-color: rgb(122, 58, 5);
+}
