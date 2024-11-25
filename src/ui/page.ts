@@ -2,15 +2,23 @@ import * as Crasm from "../crasm"
 import * as Sim from "../sim"
 
 import { createEditor, languageMap, PrismEditor } from "prism-code-editor"
-import { languages } from "prism-code-editor/prism"
 import { defaultCommands } from "prism-code-editor/commands"
+import { languages } from "prism-code-editor/prism"
 
 import "prism-code-editor/layout.css"
 import "prism-code-editor/scrollbar.css"
 import "prism-code-editor/themes/github-dark.css"
 
-import "@fortawesome/fontawesome-free/js/fontawesome"
-import "@fortawesome/fontawesome-free/js/solid"
+import {
+  dom as faDom,
+  library as faLibrary,
+} from "@fortawesome/fontawesome-svg-core"
+import {
+  faPause,
+  faPlay,
+  faRedo,
+  faUpload,
+} from "@fortawesome/free-solid-svg-icons"
 
 languages.crasm = {
   comment: /;.*/,
@@ -83,6 +91,9 @@ export class Page {
     this.output = document.getElementById("output")!
     this.debug = document.getElementById("debug")!
 
+    // Rich things
+    faLibrary.add(faPlay, faPause, faUpload, faRedo)
+    faDom.watch()
     this.editor = createEditor(
       "#editor-container",
       { language: "crasm" },

@@ -1,5 +1,3 @@
-const path = require("path")
-
 module.exports = {
   entry: "./src/index.ts",
   module: {
@@ -20,14 +18,5 @@ module.exports = {
   },
   output: {
     filename: "bundle.js",
-    path: path.resolve(__dirname, "dist"),
-  },
-  mode: "development",
-  devServer: {
-    static: {
-      directory: path.join(__dirname, "static"),
-    },
-    compress: true,
-    port: 9000,
   },
 }

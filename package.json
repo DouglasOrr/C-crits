@@ -4,7 +4,9 @@
   "description": "Game for GitHub Game Off 2024",
   "private": true,
   "scripts": {
-    "test": "jest"
+    "test": "jest",
+    "build": "rm -r dist/app ; mkdir -p dist/app && cp -r static/* dist/app && webpack --config scripts/webpack.prod.js -o dist/app && cd dist/app && zip -qr ../ccrits--$(date +'%Y-%m-%d--%H-%M-%S').zip *",
+    "dev": "webpack serve --config scripts/webpack.dev.js"
   },
   "author": "Douglas Orr",
   "license": "MIT",
@@ -20,10 +22,12 @@
     "typescript": "^5.6.3",
     "webpack": "^5.95.0",
     "webpack-cli": "^5.1.4",
-    "webpack-dev-server": "^5.1.0"
+    "webpack-dev-server": "^5.1.0",
+    "webpack-merge": "^6.0.1"
   },
   "dependencies": {
-    "@fortawesome/fontawesome-free": "^6.7.1",
+    "@fortawesome/fontawesome-svg-core": "^6.7.1",
+    "@fortawesome/free-solid-svg-icons": "^6.7.1",
     "prism-code-editor": "^3.4.0",
     "three": "^0.170.0"
   }

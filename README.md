@@ -7,8 +7,9 @@ A game jam game for GitHub Game Off 2024.
 ```sh
 npm install  # first time
 
-npx webpack serve
-npm test
+npm run dev
+npm run test
+npm run build
 ```
 
 ## Attribution
