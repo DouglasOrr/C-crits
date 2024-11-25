@@ -8,7 +8,7 @@ import {
   v2Add,
   v2Equal,
   v2Floor,
-} from "./common"
+} from "../common"
 import * as Crasm from "./crasm"
 import * as Maps from "./maps"
 

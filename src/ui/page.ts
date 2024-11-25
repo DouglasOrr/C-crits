@@ -1,5 +1,5 @@
-import * as Crasm from "../crasm"
-import * as Sim from "../sim"
+import * as Crasm from "../game/crasm"
+import * as Sim from "../game/sim"
 
 import { createEditor, languageMap, PrismEditor } from "prism-code-editor"
 import { defaultCommands } from "prism-code-editor/commands"

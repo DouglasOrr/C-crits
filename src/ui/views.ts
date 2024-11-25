@@ -1,7 +1,7 @@
 import * as THREE from "three"
-import * as Maps from "../maps"
-import * as Sim from "../sim"
 import { randn, v2Equal, Vec2 } from "../common"
+import * as Maps from "../game/maps"
+import * as Sim from "../game/sim"
 
 const S = {
   // Palette
