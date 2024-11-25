@@ -21,16 +21,21 @@ code {
 }
 
 /* Game */
-#fps-counter {
+.overlay {
   position: fixed;
+  z-index: 1000;
+  background-color: #222;
+}
+#overlay-fps {
   top: 0.5em;
   left: 0.5em;
-  z-index: 1000;
 }
-#outcome {
-  z-index: 1000;
-  position: fixed;
+#overlay-outcome {
   top: 2em;
+  left: 0.5em;
+}
+#overlay-dev {
+  bottom: 0.5em;
   left: 0.5em;
 }
 #col-sim {

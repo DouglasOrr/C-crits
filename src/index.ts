@@ -1,15 +1,13 @@
 import * as THREE from "three"
+import * as AI from "./ai"
 import { Image32, Vec2 } from "./common"
+import * as Crasm from "./crasm"
 import * as Maps from "./maps"
 import * as Sim from "./sim"
-import * as Views from "./ui/views"
-import * as Sound from "./ui/sound"
+import * as Loop from "./ui/loop"
 import * as Page from "./ui/page"
-import * as Crasm from "./crasm"
-import * as AI from "./ai"
-
-import "@fortawesome/fontawesome-free/js/fontawesome"
-import "@fortawesome/fontawesome-free/js/solid"
+import * as Sound from "./ui/sound"
+import * as Views from "./ui/views"
 
 type Textures = {
   base: THREE.Texture
@@ -137,41 +135,23 @@ async function load() {
     new Views.UserMarkerView(sim.players, scene),
   ]
 
-  // Render and physics loop
-  let running = true
-  let programUpdateTime: number | undefined = undefined
-  let updateTime: number | undefined = undefined
-  let animationTime: number | undefined = undefined
   const fpsCounter = page.createFpsCounter()
-  renderer.setAnimationLoop((time: number) => {
-    time /= 1000
-    if (
-      !running ||
-      updateTime === undefined ||
-      programUpdateTime === undefined
-    ) {
-      programUpdateTime = updateTime = Sim.S.dt * Math.floor(time / Sim.S.dt)
-    } else {
-      while (programUpdateTime < time) {
-        sim.programUpdate()
-        programUpdateTime += Sim.S.dtProgram
+  const loop = new Loop.Loop(
+    (dt) => {
+      for (const view of views) {
+        view.update(dt)
       }
-      while (updateTime < time) {
-        sim.update()
-        updateTime += Sim.S.dt
+      renderer.render(scene, camera)
+      fpsCounter.update()
+      if (sim.playerWin !== null) {
+        page.outcome.textContent = sim.playerWin ? "You win!" : "You lose!"
       }
-    }
-    const dt = time - (animationTime ?? time)
-    for (const view of views) {
-      view.update(dt)
-    }
-    renderer.render(scene, camera)
-    fpsCounter.update()
-    if (sim.playerWin !== null) {
-      page.outcome.textContent = sim.playerWin ? "You win!" : "You lose!"
-    }
-    animationTime = time
-  })
+    },
+    [
+      { update: sim.programUpdate.bind(sim), dt: Sim.S.dtProgram },
+      { update: sim.update.bind(sim), dt: Sim.S.dt },
+    ]
+  )
 
   // Input
   window.addEventListener("resize", () => {
@@ -179,7 +159,7 @@ async function load() {
   })
   function updatePlayIcon() {
     const icon = page.buttonPlayPause.children[0].classList
-    if (running) {
+    if (loop.running) {
       icon.remove("fa-play")
       icon.add("fa-pause")
     } else {
@@ -189,8 +169,8 @@ async function load() {
   }
   updatePlayIcon()
   page.buttonPlayPause.addEventListener("click", () => {
-    running = !running
-    if (running) {
+    loop.toggleRunning()
+    if (loop.running) {
       sim.userLoadProgram(page.editor.value!)
     }
     updatePlayIcon()

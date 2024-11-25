@@ -9,6 +9,9 @@ import "prism-code-editor/layout.css"
 import "prism-code-editor/scrollbar.css"
 import "prism-code-editor/themes/github-dark.css"
 
+import "@fortawesome/fontawesome-free/js/fontawesome"
+import "@fortawesome/fontawesome-free/js/solid"
+
 languages.crasm = {
   comment: /;.*/,
   number: {
@@ -53,6 +56,7 @@ export class Page {
   // Overlays
   fpsCounter: HTMLElement
   outcome: HTMLElement
+  dev: HTMLElement
   // Dev panel
   buttonPlayPause: HTMLElement
   buttonUpload: HTMLElement
@@ -67,8 +71,9 @@ export class Page {
     // Main
     this.sim = document.getElementById("col-sim")!
     // Overlays
-    this.fpsCounter = document.getElementById("fps-counter")!
-    this.outcome = document.getElementById("outcome")!
+    this.fpsCounter = document.getElementById("overlay-fps")!
+    this.outcome = document.getElementById("overlay-outcome")!
+    this.dev = document.getElementById("overlay-dev")!
     // Dev panel
     this.buttonPlayPause = document.getElementById("button-play-pause")!
     this.buttonUpload = document.getElementById("button-upload")!

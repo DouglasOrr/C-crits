@@ -589,7 +589,7 @@ export class Crits {
         if (outcome.timeout) {
           this.setError(
             i,
-            `(Non-fatal) exceeded timeout of ${S.cycleLimit} cycles`,
+            `Warning: reached ${S.cycleLimit}-cycle timeout`,
             /*line=*/ undefined,
             /*warning=*/ true
           )
