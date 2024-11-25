@@ -42,37 +42,6 @@ class Sound {
   }
 }
 
-class GeneratedMusic {
-  private lastTime: number = 0
-  private oscillator: OscillatorNode
-
-  constructor(
-    private audioContext: AudioContext,
-    private base: number,
-    volume: number
-  ) {
-    this.oscillator = new OscillatorNode(audioContext, { type: "sine" })
-    this.oscillator.frequency.setValueAtTime(base, audioContext.currentTime)
-    this.oscillator
-      .connect(new GainNode(audioContext, { gain: volume }))
-      .connect(audioContext.destination)
-    this.oscillator.start()
-  }
-
-  update(): void {
-    const now = performance.now() / 1000
-    if (this.lastTime + S.debounceTime < now) {
-      this.lastTime = now
-      const tones = [0, 3, 5, 7, 10, 12]
-      this.oscillator.frequency.setValueAtTime(
-        this.base *
-          Math.pow(2, tones[Math.floor(tones.length * Math.random())] / 12),
-        this.audioContext.currentTime
-      )
-    }
-  }
-}
-
 export async function load(): Promise<(event: Sim.Event) => void> {
   const audioContext = new window.AudioContext()
   const sounds = new Map<Sim.Event, Sound>()
@@ -83,9 +52,17 @@ export async function load(): Promise<(event: Sim.Event) => void> {
     const sound = new Sound(audioContext, buffer, params as Settings)
     sounds.set(event as Sim.Event, sound)
   }
-  const music = new GeneratedMusic(audioContext, 220, 0.0) // needs improving!
   return (event: Sim.Event) => {
-    sounds.get(event)?.play()
-    music.update()
+    if (enabled()) {
+      sounds.get(event)?.play()
+    }
   }
+}
+
+export function enabled(): boolean {
+  return window.localStorage.getItem("sound") !== "off"
+}
+
+export function setEnabled(enabled: boolean): void {
+  window.localStorage.setItem("sound", enabled ? "on" : "off")
 }

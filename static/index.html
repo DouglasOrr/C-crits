@@ -8,9 +8,22 @@
     <script defer="" src="bundle.js"></script>
   </head>
   <body>
-    <div id="overlay-fps" class="overlay">FPS</div>
+    <div id="menu">
+      <div>
+        [<span class="menu-title"></span>]$ ls
+        <ul id="menu-options"></ul>
+      </div>
+      <div>
+        [<span class="menu-title"></span>]$ ./<input
+          id="menu-cmd"
+          type="text"
+          spellcheck="false"
+          placeholder="&lt;cmd&gt;"
+        />
+      </div>
+    </div>
+    <div id="overlay-fps" class="overlay"></div>
     <div id="overlay-dev" class="overlay"></div>
-    <div id="overlay-outcome" class="overlay"></div>
     <div id="root">
       <div id="col-sim"></div>
       <div id="col-dev">
@@ -21,8 +34,8 @@
           <button id="button-upload" title="Upload code (Ctrl+Enter)">
             <i class="fas fa-upload"></i>
           </button>
-          <button id="button-restart" title="Restart level">
-            <i class="fas fa-redo"></i>
+          <button id="button-quit" title="Quit level">
+            <i class="fas fa-close"></i>
           </button>
           <input
             id="input-search"

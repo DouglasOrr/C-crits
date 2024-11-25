@@ -91,6 +91,52 @@ function updateCamera(
   camera.updateProjectionMatrix()
 }
 
+class Menu {
+  constructor(private page: Page.Page) {}
+
+  main() {
+    this.page.showMenu("c-crits:~", [
+      {
+        name: "play",
+        action: () => {
+          console.log("play")
+          this.page.hideMenu()
+        },
+      },
+      {
+        name: "settings",
+        action: () => {
+          this.settings()
+        },
+      },
+      {
+        name: "toggle-full-screen",
+        action: () => {
+          if (document.fullscreenElement) {
+            document.exitFullscreen()
+          } else {
+            document.documentElement.requestFullscreen()
+          }
+        },
+      },
+    ])
+  }
+
+  settings() {
+    this.page.showMenu("c-crits:settings", [
+      {
+        name: `sound-${Sound.enabled() ? "off" : "on"}`,
+        action: (e: HTMLElement) => {
+          const enable = e.textContent === "sound-on"
+          Sound.setEnabled(enable)
+          e.textContent = `sound-${enable ? "off" : "on"}`
+        },
+      },
+      { name: "back", action: () => this.main() },
+    ])
+  }
+}
+
 async function load() {
   // First load
   const page = new Page.Page()
@@ -107,6 +153,8 @@ async function load() {
   window.addEventListener("resize", () => {
     renderer.setSize(page.sim.offsetWidth, page.sim.offsetHeight)
   })
+  const menu = new Menu(page)
+  menu.main()
 
   // World
   const level = await loadLevel("level_0")
@@ -135,17 +183,13 @@ async function load() {
     new Views.UserMarkerView(sim.players, scene),
   ]
 
-  const fpsCounter = page.createFpsCounter()
   const loop = new Loop.Loop(
     (dt) => {
       for (const view of views) {
         view.update(dt)
       }
       renderer.render(scene, camera)
-      fpsCounter.update()
-      if (sim.playerWin !== null) {
-        page.outcome.textContent = sim.playerWin ? "You win!" : "You lose!"
-      }
+      page.onFrame()
     },
     [
       { update: sim.programUpdate.bind(sim), dt: Sim.S.dtProgram },
@@ -179,8 +223,8 @@ async function load() {
     sim.userLoadProgram(page.editor.value!)
     window.localStorage.setItem("program", page.editor.value!)
   })
-  page.buttonRestart.addEventListener("click", () => {
-    window.location.reload()
+  page.buttonQuit.addEventListener("click", () => {
+    menu.main()
   })
   renderer.domElement.addEventListener("contextmenu", (e: MouseEvent) => {
     if (!(e.shiftKey || e.ctrlKey || e.altKey || e.metaKey)) {

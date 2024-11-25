@@ -16,7 +16,7 @@ import {
 import {
   faPause,
   faPlay,
-  faRedo,
+  faClose,
   faUpload,
 } from "@fortawesome/free-solid-svg-icons"
 
@@ -59,46 +59,61 @@ function formatValue(value: any): string {
 }
 
 export class Page {
+  // Memu
+  menu: HTMLElement
+  menuOptions: HTMLElement
+  menuCmd: HTMLInputElement
+  menuTitle: NodeListOf<HTMLElement>
   // Main
   sim: HTMLElement
   // Overlays
   fpsCounter: HTMLElement
-  outcome: HTMLElement
   dev: HTMLElement
   // Dev panel
   buttonPlayPause: HTMLElement
   buttonUpload: HTMLElement
-  buttonRestart: HTMLElement
+  buttonQuit: HTMLElement
   inputSearch: HTMLElement
   searchResults: HTMLElement
   editor: PrismEditor
   output: HTMLElement
   debug: HTMLElement
+  private frameCount: number = 0
 
   constructor() {
+    // Menu
+    this.menu = document.getElementById("menu")!
+    this.menuOptions = document.getElementById("menu-options")!
+    this.menuCmd = document.getElementById("menu-cmd")! as HTMLInputElement
+    this.menuTitle = document.querySelectorAll(".menu-title")
     // Main
     this.sim = document.getElementById("col-sim")!
     // Overlays
     this.fpsCounter = document.getElementById("overlay-fps")!
-    this.outcome = document.getElementById("overlay-outcome")!
     this.dev = document.getElementById("overlay-dev")!
     // Dev panel
     this.buttonPlayPause = document.getElementById("button-play-pause")!
     this.buttonUpload = document.getElementById("button-upload")!
-    this.buttonRestart = document.getElementById("button-restart")!
+    this.buttonQuit = document.getElementById("button-quit")!
     this.inputSearch = document.getElementById("input-search")!
     this.searchResults = document.getElementById("search-results")!
     this.output = document.getElementById("output")!
     this.debug = document.getElementById("debug")!
 
     // Rich things
-    faLibrary.add(faPlay, faPause, faUpload, faRedo)
+    faLibrary.add(faPlay, faPause, faUpload, faClose)
     faDom.watch()
     this.editor = createEditor(
       "#editor-container",
       { language: "crasm" },
       defaultCommands()
     )
+
+    // FPS
+    setInterval(() => {
+      this.fpsCounter.textContent = `${this.frameCount} fps`
+      this.frameCount = 0
+    }, 1000)
 
     // Listeners
     document.addEventListener("keydown", (event) => {
@@ -167,6 +182,22 @@ export class Page {
       )
       this.searchResults.style.display = results.length > 0 ? "block" : "none"
     })
+
+    // Turn typing commands into menu clicks
+    this.menuCmd.addEventListener("keydown", (e) => {
+      this.menuCmd.dataset.status = "ok"
+      if (e.key === "Enter") {
+        for (const node of this.menuOptions.querySelectorAll("li")) {
+          if (
+            node.textContent?.toLowerCase() === this.menuCmd.value.toLowerCase()
+          ) {
+            node.click()
+            return
+          }
+        }
+        this.menuCmd.dataset.status = "error"
+      }
+    })
   }
 
   updateDebug(event: Sim.Event, data?: any): void {
@@ -218,16 +249,33 @@ export class Page {
     }
   }
 
-  createFpsCounter(): { update: () => void } {
-    let frameCount = 0
-    setInterval(() => {
-      this.fpsCounter.textContent = `${frameCount} fps`
-      frameCount = 0
-    }, 1000)
-    return {
-      update: () => {
-        frameCount += 1
-      },
-    }
+  showMenu(
+    title: string,
+    options: { name: string; action: (e: HTMLElement) => void }[]
+  ): void {
+    this.menu.style.display = "block"
+    this.menuTitle.forEach((node) => {
+      node.textContent = title
+    })
+    this.menuOptions.replaceChildren(
+      ...options.map((option) => {
+        const li = document.createElement("li")
+        li.textContent = option.name
+        li.addEventListener("click", async () => {
+          option.action(li)
+        })
+        return li
+      })
+    )
+    this.menuCmd.value = ""
+    this.menuCmd.focus()
+  }
+
+  hideMenu(): void {
+    this.menu.style.display = "none"
+  }
+
+  onFrame() {
+    this.frameCount += 1
   }
 }

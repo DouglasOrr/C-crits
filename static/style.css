@@ -10,6 +10,39 @@ code {
   padding: 0.25em;
   border-radius: 0.25em;
 }
+
+/* Menu */
+#menu {
+  position: absolute;
+  top: 0px;
+  left: 0px;
+  right: 0px;
+  bottom: 0px;
+  background: #222;
+  z-index: 200;
+  padding: 2em;
+  display: none;
+}
+#menu-options {
+  padding: 0;
+}
+#menu-options > li {
+  list-style-type: none;
+  padding: 0em 2em 1em 2em;
+  cursor: pointer;
+}
+#menu-cmd {
+  background: none;
+  border: none;
+  outline: none;
+  color: #fff;
+  font-family: monospace;
+}
+#menu-cmd[data-status="error"] {
+  color: #a00;
+}
+
+/* Main */
 #root {
   display: grid;
   grid-template-columns: 2fr 1fr;
@@ -19,11 +52,10 @@ code {
   right: 0px;
   bottom: 0px;
 }
-
 /* Game */
 .overlay {
   position: fixed;
-  z-index: 1000;
+  z-index: 100;
   background-color: #222;
 }
 #overlay-fps {
@@ -85,7 +117,7 @@ code {
   position: absolute;
   border: 1px solid #666;
   background-color: #222;
-  z-index: 1000;
+  z-index: 100;
 }
 #search-results > div {
   padding: 0.5em;
