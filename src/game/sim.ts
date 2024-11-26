@@ -10,7 +10,6 @@ import {
   v2Floor,
 } from "../common"
 import * as Crasm from "./crasm"
-import * as Levels from "./levels"
 import * as Maps from "./maps"
 
 export const S = {
@@ -40,9 +39,10 @@ export const S = {
   explosionRadius: 0.6, // m
   damage: 10, // hp
   health: 100, // hp
-  baseHealth: 2500, // hp
+  baseHealth: 1500, // hp
 
   // Base
+  defaultBaseCritters: 10, // #
   spawnTime: 2.5, // s
   spawnRingRatio: 1.5, // #
   healRange: 2.5, // m
@@ -128,8 +128,11 @@ export class Bullets {
 }
 
 export class Bases {
+  // Static
   position: Vec2[]
   direction: number[]
+  maxCritters: number[]
+  // Dynamic
   owner: number[]
   health: number[]
   deathTimer: number[]
@@ -138,10 +141,13 @@ export class Bases {
   spawnRecharge: number[]
   healRecharge: number[]
 
-  constructor(private level: Levels.Level, private listener: EventListener) {
-    const n = level.map.basePosition.length
-    this.position = level.map.basePosition.map((p) => v2Add(p, [0.5, 0.5]))
-    this.direction = level.map.baseDirection.map((d) => (d * Math.PI) / 4)
+  constructor(private map: Maps.Map, private listener: EventListener) {
+    const n = map.basePosition.length
+    // Static
+    this.position = map.basePosition.map((p) => v2Add(p, [0.5, 0.5]))
+    this.direction = map.baseDirection.map((d) => (d * Math.PI) / 4)
+    this.maxCritters = Array(n).fill(S.defaultBaseCritters)
+    // Dynamic
     this.owner = Array.from({ length: n }, (_, i) => i)
     this.health = Array(n).fill(S.baseHealth)
     this.deathTimer = Array(n).fill(0)
@@ -240,7 +246,7 @@ export class Bases {
       const owner = this.owner[base]
       const count = crits.player.reduce((sum, p) => sum + +(p === owner), 0)
       const allowedCount = this.owner.reduce(
-        (sum, p, i) => sum + this.level.maxCritters[i] * +(p === owner),
+        (sum, p, i) => sum + this.maxCritters[i] * +(p === owner),
         0
       )
       if (count < allowedCount) {
@@ -928,38 +934,37 @@ export class Sim {
   bases: Bases
   bullets: Bullets = new Bullets()
   healBullets: Bullets = new Bullets()
+  time: number = 0
 
   // Static state
-  level: Levels.Level
   pathfinder: Maps.Pathfinder
-  playerWin: boolean | null = null
 
-  constructor(level: Levels.Level, listener: EventListener) {
+  constructor(public map: Maps.Map, listener: EventListener) {
     this.crits = new Crits(listener)
-    this.level = level
-    this.pathfinder = new Maps.Pathfinder(level.map)
-    this.players = new Players(level.initialCritters.length, listener)
-    this.bases = new Bases(level, listener)
-    for (const [enemy, program] of level.program.entries()) {
-      this.players.program[1 + enemy] = program
-    }
-    for (const [player, count] of level.initialCritters.entries()) {
-      for (let i = 0; i < count; ++i) {
-        this.bases.spawnCritter(player, this.crits, this.players)
-      }
-    }
+    this.pathfinder = new Maps.Pathfinder(map)
+    this.players = new Players(map.basePosition.length, listener)
+    this.bases = new Bases(map, listener)
   }
 
-  private updateWinner(): void {
-    if (this.playerWin === null) {
-      this.bases.forEachIndex((i) => {
-        if (
-          this.bases.health[i] === 0 &&
-          this.bases.deathTimer[i] >= S.baseDeathTime
-        ) {
-          this.playerWin = this.bases.owner[i] === 1
-        }
-      }, true)
+  userWin(): boolean | null {
+    if (
+      this.bases.health[1] === 0 &&
+      this.bases.deathTimer[1] >= S.baseDeathTime
+    ) {
+      return true
+    }
+    if (
+      this.bases.health[0] === 0 &&
+      this.bases.deathTimer[0] >= S.baseDeathTime
+    ) {
+      return false
+    }
+    return null
+  }
+
+  spawnCritters(base: number, n: number): void {
+    for (let i = 0; i < n; ++i) {
+      this.bases.spawnCritter(base, this.crits, this.players)
     }
   }
 
@@ -978,11 +983,12 @@ export class Sim {
 
   programUpdate(): void {
     this.players.preProgramUpdate()
-    this.crits.programUpdate(this.players, this.bases, this.level.map)
+    this.crits.programUpdate(this.players, this.bases, this.map)
     this.players.postProgramUpdate(this.crits)
   }
 
   update(): void {
+    this.time += S.dt
     this.bullets.update((p: Vec2) => {
       this.bases.explode(p)
       this.crits.explode(p)
@@ -990,6 +996,5 @@ export class Sim {
     this.healBullets.update((p: Vec2) => this.crits.heal(p))
     this.crits.update(this.bullets, this.pathfinder)
     this.bases.update(this.crits, this.healBullets, this.players)
-    this.updateWinner()
   }
 }

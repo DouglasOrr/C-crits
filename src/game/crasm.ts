@@ -420,7 +420,6 @@ function exprAdd(s: State, a: Value, b: Value): Value {
   if (typeof a === "number" && typeof b === "number") {
     return a + b
   }
-  // TODO broadcasting?
   if (Array.isArray(a) && Array.isArray(b) && a.length === b.length) {
     return a.map((_, i) => (a[i] as number) + (b[i] as number))
   }
@@ -441,6 +440,7 @@ function exprMul(s: State, a: Value, b: Value): Value {
   if (typeof a === "number" && typeof b === "number") {
     return a * b
   }
+  // Should broadcast?
   if (Array.isArray(a) && Array.isArray(b) && a.length === b.length) {
     return a.map((_, i) => (a[i] as number) * (b[i] as number))
   }

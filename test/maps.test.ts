@@ -40,7 +40,7 @@ describe("findShortestPaths", () => {
     // prettier-ignore
     const expected = new Uint8Array([ // note mirrored-y
       1, 0, 6, 6,
-      1, 0, 0, 7,
+      1, 0, 0, 0,
       2, 2, 255, 6,
     ])
     expect(findShortestPaths(map, end)).toEqual(expected)

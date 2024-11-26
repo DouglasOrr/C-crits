@@ -67,6 +67,25 @@ export function fromImage(img: Image32): Map {
   }
 }
 
+async function loadImage(src: string): Promise<Image32> {
+  const img = new Image()
+  img.src = src
+  await img.decode()
+  const ctx = document.createElement("canvas").getContext("2d")!
+  ctx.drawImage(img, 0, 0)
+  const imageData = ctx.getImageData(0, 0, img.width, img.height)
+  const uint32Array = new Uint32Array(imageData.data.buffer)
+  return {
+    width: img.width,
+    height: img.height,
+    data: uint32Array,
+  }
+}
+
+export async function load(name: string): Promise<Map> {
+  return fromImage(await loadImage(`maps/${name}.png`))
+}
+
 // A binary heap priority queue, with a mapping from id to index
 // and a decreaseCost method, for sake of Dijsktra's algorithm
 class Queue {
@@ -172,7 +191,7 @@ export function findShortestPaths(map: Map, end: Vec2): Uint8Array {
           map.tiles[y * map.width + x - dx] !== Tile.Land ||
           map.tiles[(y - dy) * map.width + x] !== Tile.Land
         const nextCost =
-          cost + Math.sqrt(Math.abs(dx) + Math.abs(dy)) + 1000 * +isSlow
+          cost + Math.sqrt(Math.abs(dx) + Math.abs(dy)) * (1 + 1000 * +isSlow)
         if (queue.contains(nextIndex)) {
           if (nextCost < queue.getCost(nextIndex)) {
             queue.decreaseCost(nextIndex, nextCost)

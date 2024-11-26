@@ -98,9 +98,9 @@ class Menu {
   levels() {
     this.page.showMenu("c-crits:levels", [
       ...Levels.Levels.map((level) => ({
-        name: level.name,
+        name: level.Name,
         action: () => {
-          this.onPlay(level.name)
+          this.onPlay(level.Name)
         },
       })),
       { name: "back", action: () => this.main() },
@@ -136,12 +136,13 @@ class Game {
     private page: Page.Page,
     private menu: Menu,
     private sim: Sim.Sim,
+    private level: Levels.Level,
     textures: Textures
   ) {
     this.camera = new THREE.OrthographicCamera()
     this.camera.position.z = 100
     this.views = [
-      new Views.MapView(sim.level.map, this.scene),
+      new Views.MapView(sim.map, this.scene),
       new Views.BasesView(
         sim.bases,
         this.scene,
@@ -161,14 +162,22 @@ class Game {
     ]
     this.loop = new Loop.Loop(this.render.bind(this), [
       { update: sim.programUpdate.bind(sim), dt: Sim.S.dtProgram },
-      { update: sim.update.bind(sim), dt: Sim.S.dt },
+      { update: this.update.bind(this), dt: Sim.S.dt },
     ])
     page.updatePlayPause(!this.loop.running)
     page.events = this.onEvent.bind(this)
   }
 
+  update(): void {
+    this.sim.update()
+    this.level.update()
+    if (this.level.outcome !== null) {
+      this.finish()
+    }
+  }
+
   render(dt: number): void {
-    updateCamera(this.camera, this.page.sim, this.sim.level.map)
+    updateCamera(this.camera, this.page.sim, this.sim.map)
     for (const view of this.views) {
       view.update(dt)
     }
@@ -204,19 +213,22 @@ class Game {
   }
 }
 
-async function loadGame(
+async function loadLevel(
   page: Page.Page,
   playSound: (event: Sim.Event) => void,
   menu: Menu,
   textures: Textures,
-  level: string
+  name: string
 ): Promise<Game> {
   menu.hide()
+  const LevelType = Levels.get(name)
   const sim = new Sim.Sim(
-    await Levels.load(level),
+    await Maps.load((LevelType as any).Map),
     Sim.listeners(playSound, page.updateDebug.bind(page))
   )
-  return new Game(page, menu, sim, textures)
+  page.clearInstructions()
+  const level = new (LevelType as any)(sim, page)
+  return new Game(page, menu, sim, level, textures)
 }
 
 async function load() {
@@ -227,13 +239,11 @@ async function load() {
   page.editor.update()
   const menu = new Menu(page)
   menu.onPlay = (level) => {
-    loadGame(page, playSound, menu, textures, level)
+    loadLevel(page, playSound, menu, textures, level)
   }
-
-  console.log(window.location)
   const level = new URLSearchParams(window.location.search).get("level")
   if (level !== null) {
-    loadGame(page, playSound, menu, textures, level)
+    loadLevel(page, playSound, menu, textures, level)
   } else {
     menu.main()
   }

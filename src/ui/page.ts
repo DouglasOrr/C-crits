@@ -66,7 +66,7 @@ function formatValue(value: any): string {
 }
 
 export class Page {
-  // Memu
+  // Menu
   menu: HTMLElement
   menuOptions: HTMLElement
   menuCmd: HTMLInputElement
@@ -86,6 +86,8 @@ export class Page {
   editor: PrismEditor
   output: HTMLElement
   debug: HTMLElement
+  // Instructions
+  instructions: HTMLElement
   // State
   events: (event: Event) => void = () => {}
   private frameCount: number = 0
@@ -109,6 +111,8 @@ export class Page {
     this.searchResults = document.getElementById("search-results")!
     this.output = document.getElementById("output")!
     this.debug = document.getElementById("debug")!
+    // Instructions
+    this.instructions = document.getElementById("instructions")!
 
     // JS Libraries
     faLibrary.add(faPlay, faPause, faUpload, faClose)
@@ -301,6 +305,22 @@ export class Page {
         }
         this.debug.replaceChildren(error, table)
       }
+    }
+  }
+
+  clearInstructions(): void {
+    this.instructions.replaceChildren()
+  }
+  addInstruction(instruction: string): void {
+    const li = document.createElement("li")
+    li.innerHTML = instruction
+    this.instructions.insertBefore(li, this.instructions.firstChild)
+  }
+
+  setDefaultProgram(program: string): void {
+    if (this.editor.textarea.value === "") {
+      this.editor.textarea.value = program
+      this.editor.update()
     }
   }
 

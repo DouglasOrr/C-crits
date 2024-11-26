@@ -1,3 +1,7 @@
+export const Static = `
+mov $ne $tgt
+`
+
 export const Defensive = `
 sub $ne $hb $d
 vlen $d $d

@@ -7,8 +7,11 @@ body {
 code {
   background-color: #444;
   border: #111 1px solid;
-  padding: 0.25em;
+  padding: 0.15em;
   border-radius: 0.25em;
+}
+a:visited {
+  color: white;
 }
 
 /* Menu */
@@ -46,12 +49,35 @@ code {
 #root {
   display: grid;
   grid-template-columns: 2fr 1fr;
+  grid-template-rows: 6fr 1fr;
   position: absolute;
   top: 0px;
   left: 0px;
   right: 0px;
   bottom: 0px;
 }
+#col-sim {
+  grid-row: 1;
+  grid-column: 1;
+  display: grid;
+  min-width: 0px;
+  min-height: 0px;
+}
+#col-dev {
+  grid-row: 1 / span 2;
+  grid-column: 2;
+  border-left: #111 2px solid;
+  display: grid;
+  grid-template-rows: auto 1fr auto auto;
+}
+#row-instructions {
+  grid-row: 2;
+  grid-column: 1;
+  padding: 1em;
+  border-top: #111 2px solid;
+  overflow-y: auto;
+}
+
 /* Game */
 .overlay {
   position: fixed;
@@ -70,18 +96,7 @@ code {
   bottom: 0.5em;
   left: 0.5em;
 }
-#col-sim {
-  display: grid;
-  min-width: 0px;
-  min-height: 0px;
-}
 /* Dev panel */
-#col-dev {
-  display: grid;
-  height: 100vh;
-  grid-template-rows: auto 1fr auto auto;
-  border-left: #111 2px solid;
-}
 #col-dev > * {
   padding: 0.75em;
 }
@@ -159,4 +174,40 @@ code {
 }
 [data-status="warning"] {
   background-color: rgb(122, 58, 5);
+}
+
+/* Instructions */
+#instructions {
+  list-style-type: none;
+  padding: 0;
+  margin: 0;
+  max-height: 100%;
+  font-size: small;
+  cursor: default;
+}
+#instructions > li {
+  margin: 0 0 0.75em 0;
+  line-height: 1.5;
+  transition: color 0.25s ease;
+}
+#instructions > li:not(:first-child):not(:hover) {
+  color: #777;
+  font-style: italic;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 12px;
+}
+::-webkit-scrollbar-track {
+  background: #333;
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background-color: #555;
+  border-radius: 10px;
+  border: 3px solid #333;
+}
+::-webkit-scrollbar-thumb:hover {
+  background-color: #777;
 }
