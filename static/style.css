@@ -10,8 +10,8 @@ code {
   padding: 0.15em;
   border-radius: 0.25em;
 }
-a:visited {
-  color: white;
+a {
+  color: inherit;
 }
 
 /* Menu */
