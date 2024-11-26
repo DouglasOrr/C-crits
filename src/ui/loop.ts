@@ -7,6 +7,7 @@ export type PhysicsLoop = { update: () => void; dt: number }
 
 export class Loop {
   running: boolean = true
+  stopping: boolean = false
   count: number = 0
   lastUpdate?: number // ms
   physicsTime: number[]
@@ -21,6 +22,11 @@ export class Loop {
   }
 
   private loop(time: DOMHighResTimeStamp) {
+    if (this.stopping) {
+      return // without scheduling another loop
+    }
+
+    // Plan update tick
     time /= 1000
     if (this.lastUpdate === undefined || !this.running) {
       this.lastUpdate = time
@@ -33,7 +39,7 @@ export class Loop {
     )
     const physicsDt = dt / this.timeSlowing
 
-    // Updates
+    // Run updates
     this.render(dt)
     this.physics.forEach((physics, i) => {
       this.physicsTime[i] += physicsDt
@@ -48,7 +54,7 @@ export class Loop {
     requestAnimationFrame(this.loop.bind(this))
   }
 
-  toggleRunning() {
-    this.running = !this.running
+  finish() {
+    this.stopping = true
   }
 }

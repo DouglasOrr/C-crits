@@ -1,5 +1,7 @@
 import * as Crasm from "../game/crasm"
 import * as Sim from "../game/sim"
+import * as THREE from "three"
+import { Vec2 } from "../common"
 
 import { createEditor, languageMap, PrismEditor } from "prism-code-editor"
 import { defaultCommands } from "prism-code-editor/commands"
@@ -47,6 +49,11 @@ languageMap.crasm = {
   comments: { line: ";" },
 }
 
+export type Event = {
+  name: "play" | "pause" | "upload" | "quit" | "select-critter" | "set-marker"
+  position?: Vec2
+}
+
 function formatValue(value: any): string {
   if (typeof value === "number") {
     return value.toFixed(Math.floor(value) === value ? 0 : 1)
@@ -66,6 +73,7 @@ export class Page {
   menuTitle: NodeListOf<HTMLElement>
   // Main
   sim: HTMLElement
+  renderer: THREE.WebGLRenderer
   // Overlays
   fpsCounter: HTMLElement
   dev: HTMLElement
@@ -79,6 +87,7 @@ export class Page {
   output: HTMLElement
   debug: HTMLElement
   // State
+  events: (event: Event) => void = () => {}
   private frameCount: number = 0
 
   constructor() {
@@ -101,7 +110,7 @@ export class Page {
     this.output = document.getElementById("output")!
     this.debug = document.getElementById("debug")!
 
-    // Rich things
+    // JS Libraries
     faLibrary.add(faPlay, faPause, faUpload, faClose)
     faDom.watch()
     this.editor = createEditor(
@@ -109,6 +118,15 @@ export class Page {
       { language: "crasm" },
       defaultCommands()
     )
+    this.renderer = new THREE.WebGLRenderer({ antialias: false })
+    this.renderer.setClearColor(
+      new THREE.Color(getComputedStyle(document.body).backgroundColor)
+    )
+    this.renderer.setSize(this.sim.offsetWidth, this.sim.offsetHeight)
+    this.sim.appendChild(this.renderer.domElement)
+    window.addEventListener("resize", () => {
+      this.renderer.setSize(this.sim.offsetWidth, this.sim.offsetHeight)
+    })
 
     // FPS
     setInterval(() => {
@@ -128,7 +146,7 @@ export class Page {
         this.buttonQuit.click()
       }
     })
-    // forcibly override the prism editor handler for Ctrl+Enter and (Shift)+Tab
+    // Forcibly override the prism editor handler for Ctrl+Enter and (Shift)+Tab
     this.editor.textarea.addEventListener(
       "keydown",
       (event) => {
@@ -163,7 +181,6 @@ export class Page {
     this.inputSearch.addEventListener("blur", (e) => {
       this.searchResults.style.display = "none"
     })
-
     this.inputSearch.addEventListener("input", (e) => {
       const input = e.target as HTMLInputElement
       const query = input.value.trim()
@@ -204,6 +221,37 @@ export class Page {
           this.menuCmd.dataset.status = "error"
         }
       }
+    })
+
+    // Events
+    this.buttonPlayPause.addEventListener("click", () => {
+      const status = this.buttonPlayPause.dataset.status as "play" | "pause"
+      this.events({ name: status })
+      this.updatePlayPause(status === "pause")
+    })
+    this.buttonUpload.addEventListener("click", () => {
+      this.events({ name: "upload" })
+    })
+    this.buttonQuit.addEventListener("click", () => {
+      this.events({ name: "quit" })
+    })
+    this.renderer.domElement.addEventListener(
+      "contextmenu",
+      (e: MouseEvent) => {
+        if (!(e.shiftKey || e.ctrlKey || e.altKey || e.metaKey)) {
+          e.preventDefault()
+          this.events({
+            name: "set-marker",
+            position: [e.clientX, e.clientY],
+          })
+        }
+      }
+    )
+    this.renderer.domElement.addEventListener("click", (e: MouseEvent) => {
+      this.events({
+        name: "select-critter",
+        position: [e.clientX, e.clientY],
+      })
     })
   }
 
@@ -256,6 +304,19 @@ export class Page {
     }
   }
 
+  updatePlayPause(play: boolean) {
+    const icon = this.buttonPlayPause.children[0].classList
+    if (play) {
+      this.buttonPlayPause.dataset.status = "play"
+      icon.add("fa-play")
+      icon.remove("fa-pause")
+    } else {
+      this.buttonPlayPause.dataset.status = "pause"
+      icon.add("fa-pause")
+      icon.remove("fa-play")
+    }
+  }
+
   showMenu(
     title: string,
     options: { name: string; action: (e: HTMLElement) => void }[]
@@ -282,7 +343,8 @@ export class Page {
     this.menu.style.display = "none"
   }
 
-  onFrame() {
+  render(scene: THREE.Scene, camera: THREE.Camera): void {
+    this.renderer.render(scene, camera)
     this.frameCount += 1
   }
 }

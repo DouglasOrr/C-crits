@@ -43,8 +43,9 @@ function bulletColor(isHeal: boolean): THREE.Color {
   return isHeal ? S.primary : S.secondary
 }
 
-interface View {
+export interface View {
   update(dt: number): void
+  dispose(): void
 }
 
 const hash2 = `
@@ -143,6 +144,7 @@ void main() {
 export class CritsView implements View {
   private geometry: THREE.InstancedBufferGeometry
   private nFrames: number
+  private material: THREE.RawShaderMaterial
 
   constructor(
     private crits: Sim.Crits,
@@ -150,7 +152,7 @@ export class CritsView implements View {
     texture: THREE.Texture
   ) {
     this.nFrames = 4
-    const material = new THREE.RawShaderMaterial({
+    this.material = new THREE.RawShaderMaterial({
       uniforms: {
         tex: { value: texture },
         nFrames: { value: this.nFrames },
@@ -204,7 +206,7 @@ export class CritsView implements View {
       this.geometry.setAttribute(name, attribute)
     })
 
-    scene.add(new THREE.Mesh(this.geometry, material))
+    scene.add(new THREE.Mesh(this.geometry, this.material))
   }
 
   update(dt: number): void {
@@ -251,6 +253,11 @@ export class CritsView implements View {
     fadeOut.needsUpdate = true
     scale.needsUpdate = true
   }
+
+  dispose(): void {
+    this.geometry.dispose()
+    this.material.dispose()
+  }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -291,13 +298,14 @@ void main() {
 
 export class BulletsView implements View {
   private geometry: THREE.InstancedBufferGeometry
+  private material: THREE.RawShaderMaterial
 
   constructor(
     private bullets: Sim.Bullets,
     scene: THREE.Scene,
     isHeal: boolean
   ) {
-    const material = new THREE.RawShaderMaterial({
+    this.material = new THREE.RawShaderMaterial({
       uniforms: {
         color: {
           value: new THREE.Color().copyLinearToSRGB(bulletColor(isHeal)),
@@ -328,7 +336,7 @@ export class BulletsView implements View {
       this.geometry.setAttribute(name, attribute)
     })
 
-    scene.add(new THREE.Mesh(this.geometry, material))
+    scene.add(new THREE.Mesh(this.geometry, this.material))
   }
 
   update(dt: number): void {
@@ -344,6 +352,11 @@ export class BulletsView implements View {
     this.geometry.instanceCount = index
     offset.needsUpdate = true
     angle.needsUpdate = true
+  }
+
+  dispose(): void {
+    this.geometry.dispose()
+    this.material.dispose()
   }
 }
 
@@ -389,6 +402,7 @@ export class BasesView implements View {
   materials: THREE.ShaderMaterial[] = []
   flashTau: number[] = []
   srgbColors: THREE.Color[] = []
+  geometry: THREE.PlaneGeometry
 
   constructor(
     private bases: Sim.Bases,
@@ -396,6 +410,7 @@ export class BasesView implements View {
     playerBaseTexture: THREE.Texture,
     neutralBaseTexture: THREE.Texture
   ) {
+    this.geometry = new THREE.PlaneGeometry(1, 1)
     for (let i = 0; i < bases.length; i++) {
       this.srgbColors.push(new THREE.Color().copyLinearToSRGB(playerColor(i)))
       const material = new THREE.RawShaderMaterial({
@@ -414,7 +429,7 @@ export class BasesView implements View {
         fragmentShader: basesFragmentShader,
         transparent: true,
       })
-      const mesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), material)
+      const mesh = new THREE.Mesh(this.geometry, material)
       mesh.position.set(bases.position[i][0], bases.position[i][1], S.zBases)
       scene.add(mesh)
       this.materials.push(material)
@@ -452,6 +467,11 @@ export class BasesView implements View {
         }
       }
     }, /*includeDead=*/ true)
+  }
+
+  dispose(): void {
+    this.materials.forEach((m) => m.dispose())
+    this.geometry.dispose()
   }
 }
 
@@ -516,6 +536,9 @@ export class MapView implements View {
     })
   }
 
+  geometries: PlaneInstancedBufferGeometry[] = []
+  materials: THREE.ShaderMaterial[] = []
+
   constructor(map: Maps.Map, scene: THREE.Scene) {
     const waterXY: Vec2[] = []
     const landXY: Vec2[] = []
@@ -525,7 +548,7 @@ export class MapView implements View {
       ;(map.tiles[i] === Maps.Tile.Water ? waterXY : landXY).push([x, y])
     }
 
-    function createTiles(xys: Vec2[], material: THREE.ShaderMaterial) {
+    const createTiles = (xys: Vec2[], material: THREE.ShaderMaterial) => {
       const geometry = new PlaneInstancedBufferGeometry([1, 1], [0, 0], S.zMap)
       geometry.instanceCount = xys.length
       const a = new Float32Array(xys.length * 2)
@@ -534,6 +557,8 @@ export class MapView implements View {
       }
       geometry.setAttribute("offset", new THREE.InstancedBufferAttribute(a, 2))
       scene.add(new THREE.Mesh(geometry, material))
+      this.geometries.push(geometry)
+      this.materials.push(material)
     }
     createTiles(
       waterXY,
@@ -554,6 +579,10 @@ export class MapView implements View {
   }
   update(dt: number): void {
     // Nothing to do
+  }
+  dispose(): void {
+    this.geometries.forEach((g) => g.dispose())
+    this.materials.forEach((m) => m.dispose())
   }
 }
 
@@ -592,6 +621,10 @@ export class UserSelectionView implements View {
       this.mesh.visible = false
     }
   }
+  dispose(): void {
+    this.mesh.geometry.dispose()
+    ;(this.mesh.material as THREE.Material).dispose()
+  }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -599,7 +632,9 @@ export class UserSelectionView implements View {
 
 export class UserMarkerView implements View {
   private pointData: Float32Array
-  private geometries: THREE.BufferGeometry[]
+  private geometries: THREE.BufferGeometry[] = []
+  private materials: THREE.PointsMaterial[] = []
+
   // Physics
   private lastMarker: Vec2 | null = null
   private offset: Vec2[] = Array.from({ length: S.markerParticles }, () => [
@@ -612,13 +647,14 @@ export class UserMarkerView implements View {
 
   constructor(private players: Sim.Players, scene: THREE.Scene) {
     this.pointData = new Float32Array(3 * S.markerParticles).fill(S.zMarker)
-    this.geometries = [S.primary, S.secondary].map((color) => {
+    ;[S.primary, S.secondary].forEach((color) => {
       const g = new THREE.BufferGeometry()
       g.setAttribute("position", new THREE.BufferAttribute(this.pointData, 3))
       g.setDrawRange(0, 0)
       const m = new THREE.PointsMaterial({ color: color, size: 1 })
       scene.add(new THREE.Points(g, m))
-      return g
+      this.geometries.push(g)
+      this.materials.push(m)
     })
   }
 
@@ -659,5 +695,9 @@ export class UserMarkerView implements View {
       this.geometries.forEach((g) => g.setDrawRange(0, 0))
       this.lastMarker = null
     }
+  }
+  dispose(): void {
+    this.geometries.forEach((g) => g.dispose())
+    this.materials.forEach((m) => m.dispose())
   }
 }

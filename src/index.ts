@@ -64,6 +64,8 @@ function updateCamera(
 }
 
 class Menu {
+  onPlay: (level: string) => void = () => {}
+
   constructor(private page: Page.Page) {}
 
   main() {
@@ -112,13 +114,105 @@ class Menu {
       ...Levels.Levels.map((level) => ({
         name: level.name,
         action: () => {
-          console.log(level.name) //TODO
+          this.onPlay(level.name)
           this.page.hideMenu()
         },
       })),
       { name: "back", action: () => this.main() },
     ])
   }
+}
+
+class Game {
+  private views: Views.View[]
+  private loop: Loop.Loop
+  private camera: THREE.OrthographicCamera
+  private scene = new THREE.Scene()
+
+  constructor(
+    private page: Page.Page,
+    private menu: Menu,
+    private sim: Sim.Sim,
+    textures: Textures
+  ) {
+    this.camera = new THREE.OrthographicCamera()
+    this.camera.position.z = 100
+    this.views = [
+      new Views.MapView(sim.level.map, this.scene),
+      new Views.BasesView(
+        sim.bases,
+        this.scene,
+        textures.base,
+        textures.base_n
+      ),
+      new Views.CritsView(sim.crits, this.scene, textures.crit),
+      new Views.BulletsView(sim.bullets, this.scene, /*isHeal*/ false),
+      new Views.BulletsView(sim.healBullets, this.scene, /*isHeal*/ true),
+      new Views.UserSelectionView(
+        sim.players,
+        sim.crits,
+        this.scene,
+        textures.selection
+      ),
+      new Views.UserMarkerView(sim.players, this.scene),
+    ]
+    this.loop = new Loop.Loop(this.render.bind(this), [
+      { update: sim.programUpdate.bind(sim), dt: Sim.S.dtProgram },
+      { update: sim.update.bind(sim), dt: Sim.S.dt },
+    ])
+    page.updatePlayPause(!this.loop.running)
+    page.events = this.onEvent.bind(this)
+  }
+
+  render(dt: number): void {
+    updateCamera(this.camera, this.page.sim, this.sim.level.map)
+    for (const view of this.views) {
+      view.update(dt)
+    }
+    this.page.render(this.scene, this.camera)
+  }
+
+  onEvent(event: Page.Event): void {
+    if (event.name === "play") {
+      this.loop.running = true
+    } else if (event.name === "pause") {
+      this.loop.running = false
+    } else if (event.name === "quit") {
+      this.finish()
+    } else if (event.name === "upload") {
+      this.sim.userLoadProgram(this.page.editor.value!)
+      window.localStorage.setItem("program", this.page.editor.value!)
+    } else if (event.name === "select-critter") {
+      this.sim.userSelect(
+        screenToWorld(this.page.renderer, this.camera, event.position!)
+      )
+    } else if (event.name === "set-marker") {
+      this.sim.userSetMarker(
+        screenToWorld(this.page.renderer, this.camera, event.position!)
+      )
+    }
+  }
+
+  finish(): void {
+    this.loop.finish()
+    this.page.events = () => {}
+    this.views.forEach((view) => view.dispose())
+    this.menu.main()
+  }
+}
+
+async function loadGame(
+  page: Page.Page,
+  playSound: (event: Sim.Event) => void,
+  menu: Menu,
+  textures: Textures,
+  level: string
+): Promise<Game> {
+  const sim = new Sim.Sim(
+    await Levels.load(level),
+    Sim.listeners(playSound, page.updateDebug.bind(page))
+  )
+  return new Game(page, menu, sim, textures)
 }
 
 async function load() {
@@ -128,94 +222,12 @@ async function load() {
   const textures = await loadTextures()
   page.editor.textarea.value = window.localStorage.getItem("program") ?? ""
   page.editor.update()
-  const renderer = new THREE.WebGLRenderer({ antialias: false })
-  renderer.setClearColor(
-    new THREE.Color(getComputedStyle(document.body).backgroundColor)
-  )
-  renderer.setSize(page.sim.offsetWidth, page.sim.offsetHeight)
-  page.sim.appendChild(renderer.domElement)
-  window.addEventListener("resize", () => {
-    renderer.setSize(page.sim.offsetWidth, page.sim.offsetHeight)
-  })
+
   const menu = new Menu(page)
   menu.main()
-
-  // World
-  const level = await Levels.load("0-standard")
-  const sim = new Sim.Sim(
-    level,
-    Sim.listeners(playSound, page.updateDebug.bind(page))
-  )
-
-  // Scene
-  const camera = new THREE.OrthographicCamera()
-  camera.position.z = 100
-  const scene = new THREE.Scene()
-  const views = [
-    new Views.MapView(level.map, scene),
-    new Views.BasesView(sim.bases, scene, textures.base, textures.base_n),
-    new Views.CritsView(sim.crits, scene, textures.crit),
-    new Views.BulletsView(sim.bullets, scene, /*isHeal*/ false),
-    new Views.BulletsView(sim.healBullets, scene, /*isHeal*/ true),
-    new Views.UserSelectionView(
-      sim.players,
-      sim.crits,
-      scene,
-      textures.selection
-    ),
-    new Views.UserMarkerView(sim.players, scene),
-  ]
-
-  const loop = new Loop.Loop(
-    (dt) => {
-      updateCamera(camera, page.sim, level.map)
-      for (const view of views) {
-        view.update(dt)
-      }
-      renderer.render(scene, camera)
-      page.onFrame()
-    },
-    [
-      { update: sim.programUpdate.bind(sim), dt: Sim.S.dtProgram },
-      { update: sim.update.bind(sim), dt: Sim.S.dt },
-    ]
-  )
-
-  // Input
-  function updatePlayIcon() {
-    const icon = page.buttonPlayPause.children[0].classList
-    if (loop.running) {
-      icon.remove("fa-play")
-      icon.add("fa-pause")
-    } else {
-      icon.add("fa-play")
-      icon.remove("fa-pause")
-    }
+  menu.onPlay = (level) => {
+    loadGame(page, playSound, menu, textures, level)
   }
-  updatePlayIcon()
-  page.buttonPlayPause.addEventListener("click", () => {
-    loop.toggleRunning()
-    if (loop.running) {
-      sim.userLoadProgram(page.editor.value!)
-    }
-    updatePlayIcon()
-  })
-  page.buttonUpload.addEventListener("click", () => {
-    sim.userLoadProgram(page.editor.value!)
-    window.localStorage.setItem("program", page.editor.value!)
-  })
-  page.buttonQuit.addEventListener("click", () => {
-    menu.main()
-  })
-  renderer.domElement.addEventListener("contextmenu", (e: MouseEvent) => {
-    if (!(e.shiftKey || e.ctrlKey || e.altKey || e.metaKey)) {
-      e.preventDefault()
-      sim.userSetMarker(screenToWorld(renderer, camera, [e.clientX, e.clientY]))
-    }
-  })
-  renderer.domElement.addEventListener("click", (e: MouseEvent) => {
-    sim.userSelect(screenToWorld(renderer, camera, [e.clientX, e.clientY]))
-  })
 }
 
 window.onload = () => {
