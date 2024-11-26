@@ -1,5 +1,5 @@
 import { Image32, Vec2 } from "../src/common"
-import { findShortestPaths, fromImage, Map, Tile } from "../src/maps"
+import { findShortestPaths, fromImage, Map, Tile } from "../src/game/maps"
 
 describe("fromImage", () => {
   it("handle land, water, bases", () => {

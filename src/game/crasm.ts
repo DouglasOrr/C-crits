@@ -222,6 +222,14 @@ export function emptyProgram(): Program {
   return { ops: [], labels: {} }
 }
 
+export class RuntimeError extends Error {
+  constructor(message: string, public line: number) {
+    super(message)
+  }
+}
+
+export class AssertionError extends Error {}
+
 // Execution
 
 export function run(
@@ -231,7 +239,10 @@ export function run(
   startLabel: string | null
 ): Outcome {
   const s = new State(program, memory)
-  if (startLabel !== null && program.labels[startLabel] !== undefined) {
+  if (startLabel !== null) {
+    if (program.labels[startLabel] === undefined) {
+      throw new RuntimeError(`unknown $state ${startLabel}`, -1)
+    }
     s.pc = program.labels[startLabel]
   }
   while (s.pc < program.ops.length) {
@@ -308,14 +319,6 @@ export function run(
   return { comms: s.comms, cycles: s.cycleCount, timeout: s.timeout }
 }
 
-export class RuntimeError extends Error {
-  constructor(message: string, public line: number) {
-    super(message)
-  }
-}
-
-export class AssertionError extends Error {}
-
 class State {
   pc: number = 0
   cycleCount: number = 0
@@ -350,12 +353,15 @@ function jumpTarget(s: State, arg: Arg): number {
   if (typeof value === "string") {
     const line = s.program.labels[value]
     if (line === undefined || line === null) {
-      throw new RuntimeError(`Unknown label ${value}`, s.op.line)
+      throw new RuntimeError(
+        `${Opcode[s.op.opcode]} unknown label ${value}`,
+        s.op.line
+      )
     }
     return line
   } else {
     throw new RuntimeError(
-      `Can't ${Opcode[s.op.opcode]} to ${value}`,
+      `can't ${Opcode[s.op.opcode]} to ${value}, expected @label`,
       s.op.line
     )
   }
@@ -418,7 +424,7 @@ function exprAdd(s: State, a: Value, b: Value): Value {
   if (Array.isArray(a) && Array.isArray(b) && a.length === b.length) {
     return a.map((_, i) => (a[i] as number) + (b[i] as number))
   }
-  throw new RuntimeError(`Can't ADD ${a} ${b}`, s.op.line)
+  throw new RuntimeError(`can't ADD ${a} ${b}`, s.op.line)
 }
 
 function exprSub(s: State, a: Value, b: Value): Value {
@@ -428,7 +434,7 @@ function exprSub(s: State, a: Value, b: Value): Value {
   if (Array.isArray(a) && Array.isArray(b) && a.length === b.length) {
     return a.map((_, i) => (a[i] as number) - (b[i] as number))
   }
-  throw new RuntimeError(`Can't SUB ${a} ${b}`, s.op.line)
+  throw new RuntimeError(`can't SUB ${a} ${b}`, s.op.line)
 }
 
 function exprMul(s: State, a: Value, b: Value): Value {
@@ -438,7 +444,7 @@ function exprMul(s: State, a: Value, b: Value): Value {
   if (Array.isArray(a) && Array.isArray(b) && a.length === b.length) {
     return a.map((_, i) => (a[i] as number) * (b[i] as number))
   }
-  throw new RuntimeError(`Can't MUL ${a} ${b}`, s.op.line)
+  throw new RuntimeError(`can't MUL ${a} ${b}`, s.op.line)
 }
 
 function exprDiv(s: State, a: Value, b: Value): Value {
@@ -448,7 +454,7 @@ function exprDiv(s: State, a: Value, b: Value): Value {
   if (Array.isArray(a) && Array.isArray(b) && a.length === b.length) {
     return a.map((_, i) => (a[i] as number) / (b[i] as number))
   }
-  throw new RuntimeError(`Can't DIV ${a} ${b}`, s.op.line)
+  throw new RuntimeError(`can't DIV ${a} ${b}`, s.op.line)
 }
 
 function exprMod(s: State, a: Value, b: Value): Value {
@@ -458,7 +464,7 @@ function exprMod(s: State, a: Value, b: Value): Value {
   if (Array.isArray(a) && Array.isArray(b) && a.length === b.length) {
     return a.map((_, i) => (a[i] as number) % (b[i] as number))
   }
-  throw new RuntimeError(`Can't MOD ${a} ${b}`, s.op.line)
+  throw new RuntimeError(`can't MOD ${a} ${b}`, s.op.line)
 }
 
 // Array
@@ -471,7 +477,7 @@ function exprPush(s: State, a: Value, b: Value): Value {
     aa = [a]
   } else {
     throw new RuntimeError(
-      `Can't PUSH ${a}, expected array or number`,
+      `can't PUSH ${a}, expected array or number`,
       s.op.line
     )
   }
@@ -482,7 +488,7 @@ function exprPush(s: State, a: Value, b: Value): Value {
     bb = [b]
   } else {
     throw new RuntimeError(
-      `Can't PUSH ${b}, expected array or number`,
+      `can't PUSH ${b}, expected array or number`,
       s.op.line
     )
   }
@@ -500,7 +506,7 @@ function exprGet(s: State, array: Value, idx: Value): Value {
     )
   }
   if (idx < 0 || idx >= array.length) {
-    throw new RuntimeError(`Index ${idx} out of bounds`, s.op.line)
+    throw new RuntimeError(`GET index ${idx} out of bounds`, s.op.line)
   }
   return array[idx]
 }
@@ -541,21 +547,21 @@ function exprEZ(s: State, a: Value): boolean {
   if (Array.isArray(a)) {
     return a.every((x) => x === 0)
   }
-  throw new RuntimeError(`Can't compare ${a} to 0`, s.op.line)
+  throw new RuntimeError(`can't compare ${a} to 0`, s.op.line)
 }
 
 function exprLZ(s: State, a: Value): boolean {
   if (typeof a === "number") {
     return a < 0
   }
-  throw new RuntimeError(`Can't compare ${a} to 0`, s.op.line)
+  throw new RuntimeError(`can't compare ${a} to 0`, s.op.line)
 }
 
 function exprGZ(s: State, a: Value): boolean {
   if (typeof a === "number") {
     return a > 0
   }
-  throw new RuntimeError(`Can't compare ${a} to 0`, s.op.line)
+  throw new RuntimeError(`can't compare ${a} to 0`, s.op.line)
 }
 
 // Parsing

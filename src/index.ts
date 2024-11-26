@@ -95,6 +95,18 @@ class Menu {
     ])
   }
 
+  levels() {
+    this.page.showMenu("c-crits:levels", [
+      ...Levels.Levels.map((level) => ({
+        name: level.name,
+        action: () => {
+          this.onPlay(level.name)
+        },
+      })),
+      { name: "back", action: () => this.main() },
+    ])
+  }
+
   settings() {
     this.page.showMenu("c-crits:settings", [
       {
@@ -109,17 +121,8 @@ class Menu {
     ])
   }
 
-  levels() {
-    this.page.showMenu("c-crits:levels", [
-      ...Levels.Levels.map((level) => ({
-        name: level.name,
-        action: () => {
-          this.onPlay(level.name)
-          this.page.hideMenu()
-        },
-      })),
-      { name: "back", action: () => this.main() },
-    ])
+  hide() {
+    this.page.hideMenu()
   }
 }
 
@@ -208,6 +211,7 @@ async function loadGame(
   textures: Textures,
   level: string
 ): Promise<Game> {
+  menu.hide()
   const sim = new Sim.Sim(
     await Levels.load(level),
     Sim.listeners(playSound, page.updateDebug.bind(page))
@@ -216,17 +220,22 @@ async function loadGame(
 }
 
 async function load() {
-  // First load
   const page = new Page.Page()
   const playSound = await Sound.load()
   const textures = await loadTextures()
   page.editor.textarea.value = window.localStorage.getItem("program") ?? ""
   page.editor.update()
-
   const menu = new Menu(page)
-  menu.main()
   menu.onPlay = (level) => {
     loadGame(page, playSound, menu, textures, level)
+  }
+
+  console.log(window.location)
+  const level = new URLSearchParams(window.location.search).get("level")
+  if (level !== null) {
+    loadGame(page, playSound, menu, textures, level)
+  } else {
+    menu.main()
   }
 }
 

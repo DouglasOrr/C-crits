@@ -5,7 +5,7 @@ import {
   parseLiteral,
   run,
   tokenise,
-} from "../src/crasm"
+} from "../src/game/crasm"
 
 describe("tokenise", () => {
   it("should split a line into tokens", () => {
