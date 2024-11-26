@@ -1,4 +1,5 @@
 export const S = {
+  maxDt: 1 / 4, // s  (one long frame can cause much time slowing!)
   minFps: 30, // 1/s
   timeSlowingLambda: 1.0, // #
 }
@@ -31,7 +32,7 @@ export class Loop {
     if (this.lastUpdate === undefined || !this.running) {
       this.lastUpdate = time
     }
-    const dt = time - this.lastUpdate
+    const dt = Math.min(time - this.lastUpdate, S.maxDt)
     // Slow down the physics to prevent queueing up updates
     this.timeSlowing = Math.max(
       1,
