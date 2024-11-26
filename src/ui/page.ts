@@ -14,9 +14,9 @@ import {
   library as faLibrary,
 } from "@fortawesome/fontawesome-svg-core"
 import {
+  faClose,
   faPause,
   faPlay,
-  faClose,
   faUpload,
 } from "@fortawesome/free-solid-svg-icons"
 
@@ -78,6 +78,7 @@ export class Page {
   editor: PrismEditor
   output: HTMLElement
   debug: HTMLElement
+  // State
   private frameCount: number = 0
 
   constructor() {
@@ -122,6 +123,9 @@ export class Page {
       }
       if (event.ctrlKey && event.key === "Enter") {
         this.buttonUpload.click()
+      }
+      if (event.ctrlKey && event.key.toLowerCase() === "q") {
+        this.buttonQuit.click()
       }
     })
     // forcibly override the prism editor handler for Ctrl+Enter and (Shift)+Tab
@@ -187,15 +191,18 @@ export class Page {
     this.menuCmd.addEventListener("keydown", (e) => {
       this.menuCmd.dataset.status = "ok"
       if (e.key === "Enter") {
-        for (const node of this.menuOptions.querySelectorAll("li")) {
-          if (
-            node.textContent?.toLowerCase() === this.menuCmd.value.toLowerCase()
-          ) {
-            node.click()
-            return
-          }
+        const matches = Array.from(
+          this.menuOptions.querySelectorAll("li")
+        ).filter((node) =>
+          node.textContent
+            ?.toLowerCase()
+            .startsWith(this.menuCmd.value.toLowerCase())
+        )
+        if (matches.length === 1) {
+          matches[0].click()
+        } else {
+          this.menuCmd.dataset.status = "error"
         }
-        this.menuCmd.dataset.status = "error"
       }
     })
   }

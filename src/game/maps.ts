@@ -1,12 +1,4 @@
 import { Image32, v2Equal, v2Floor, Vec2 } from "../common"
-import * as Crasm from "./crasm"
-
-export type Level = {
-  map: Map
-  initialCritters: number[]
-  maxCritters: number[]
-  program: Crasm.Program[]
-}
 
 export enum Tile {
   Land,

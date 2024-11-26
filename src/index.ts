@@ -1,7 +1,6 @@
 import * as THREE from "three"
-import { Image32, Vec2 } from "./common"
-import * as AI from "./game/ai"
-import * as Crasm from "./game/crasm"
+import { Vec2 } from "./common"
+import * as Levels from "./game/levels"
 import * as Maps from "./game/maps"
 import * as Sim from "./game/sim"
 import * as Loop from "./ui/loop"
@@ -30,33 +29,6 @@ async function loadTextures(): Promise<Textures> {
     crit: await load("crit"),
     selection: await load("selection"),
   }
-}
-
-async function loadImage(src: string): Promise<Image32> {
-  const img = new Image()
-  img.src = src
-  await img.decode()
-  const ctx = document.createElement("canvas").getContext("2d")!
-  ctx.drawImage(img, 0, 0)
-  const imageData = ctx.getImageData(0, 0, img.width, img.height)
-  const uint32Array = new Uint32Array(imageData.data.buffer)
-  return {
-    width: img.width,
-    height: img.height,
-    data: uint32Array,
-  }
-}
-
-async function loadLevel(name: string): Promise<Maps.Level> {
-  const response = await fetch(`levels/${name}.json`)
-  const data = await response.json()
-  data["map"] = Maps.fromImage(await loadImage(`maps/${data["map"]}.png`))
-  data["program"] = data["program"].map((program: string | null) =>
-    program === null
-      ? Crasm.emptyProgram()
-      : Crasm.parse(AI[program as keyof typeof AI])
-  )
-  return data as Maps.Level
 }
 
 function screenToWorld(
@@ -99,8 +71,7 @@ class Menu {
       {
         name: "play",
         action: () => {
-          console.log("play")
-          this.page.hideMenu()
+          this.levels()
         },
       },
       {
@@ -135,6 +106,19 @@ class Menu {
       { name: "back", action: () => this.main() },
     ])
   }
+
+  levels() {
+    this.page.showMenu("c-crits:levels", [
+      ...Levels.Levels.map((level) => ({
+        name: level.name,
+        action: () => {
+          console.log(level.name) //TODO
+          this.page.hideMenu()
+        },
+      })),
+      { name: "back", action: () => this.main() },
+    ])
+  }
 }
 
 async function load() {
@@ -157,7 +141,7 @@ async function load() {
   menu.main()
 
   // World
-  const level = await loadLevel("level_0")
+  const level = await Levels.load("0-standard")
   const sim = new Sim.Sim(
     level,
     Sim.listeners(playSound, page.updateDebug.bind(page))
@@ -166,7 +150,6 @@ async function load() {
   // Scene
   const camera = new THREE.OrthographicCamera()
   camera.position.z = 100
-  updateCamera(camera, page.sim, level.map)
   const scene = new THREE.Scene()
   const views = [
     new Views.MapView(level.map, scene),
@@ -185,6 +168,7 @@ async function load() {
 
   const loop = new Loop.Loop(
     (dt) => {
+      updateCamera(camera, page.sim, level.map)
       for (const view of views) {
         view.update(dt)
       }
@@ -198,9 +182,6 @@ async function load() {
   )
 
   // Input
-  window.addEventListener("resize", () => {
-    updateCamera(camera, page.sim, level.map)
-  })
   function updatePlayIcon() {
     const icon = page.buttonPlayPause.children[0].classList
     if (loop.running) {

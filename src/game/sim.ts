@@ -10,6 +10,7 @@ import {
   v2Floor,
 } from "../common"
 import * as Crasm from "./crasm"
+import * as Levels from "./levels"
 import * as Maps from "./maps"
 
 export const S = {
@@ -137,7 +138,7 @@ export class Bases {
   spawnRecharge: number[]
   healRecharge: number[]
 
-  constructor(private level: Maps.Level, private listener: EventListener) {
+  constructor(private level: Levels.Level, private listener: EventListener) {
     const n = level.map.basePosition.length
     this.position = level.map.basePosition.map((p) => v2Add(p, [0.5, 0.5]))
     this.direction = level.map.baseDirection.map((d) => (d * Math.PI) / 4)
@@ -929,11 +930,11 @@ export class Sim {
   healBullets: Bullets = new Bullets()
 
   // Static state
-  level: Maps.Level
+  level: Levels.Level
   pathfinder: Maps.Pathfinder
   playerWin: boolean | null = null
 
-  constructor(level: Maps.Level, listener: EventListener) {
+  constructor(level: Levels.Level, listener: EventListener) {
     this.crits = new Crits(listener)
     this.level = level
     this.pathfinder = new Maps.Pathfinder(level.map)
