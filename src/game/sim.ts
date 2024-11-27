@@ -39,7 +39,8 @@ export const S = {
   explosionRadius: 0.6, // m
   damage: 10, // hp
   health: 100, // hp
-  baseHealth: 1500, // hp
+  baseHealth: 750, // hp
+  baseHealing: 15, // hp/s
 
   // Base
   defaultBaseCritters: 10, // #
@@ -345,6 +346,10 @@ export class Bases {
 
   update(crits: Crits, healBullets: Bullets, players: Players): void {
     this.forEachIndex((i) => {
+      this.health[i] = Math.min(
+        this.health[i] + S.baseHealing * S.dt,
+        S.baseHealth
+      )
       this.respawn(i, crits, players)
       this.fireHealBullets(i, crits, healBullets)
       if (Bases.isNeutralBase(i)) {
