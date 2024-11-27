@@ -188,7 +188,6 @@ a {
 #instructions > li {
   margin: 0 0 0.75em 0;
   line-height: 1.5;
-  transition: color 0.25s ease;
 }
 #instructions > li:not(:first-child):not(:hover) {
   color: #777;

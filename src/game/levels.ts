@@ -97,9 +97,10 @@ class L0_Tutorial extends Level {
   static Map = "tutorial"
 
   init() {
-    setAI(this.sim, AI.Static)
+    setAI(this.sim, ["mov 12,12 $dst", "mov $ne $tgt"].join("\n"))
     setSpawn(this.sim, [
       { n: 1, max: 1 },
+      { n: 0, max: 0 },
       { n: 0, max: 0 },
     ])
   }
@@ -133,39 +134,48 @@ class L0_Tutorial extends Level {
       print(
         "You can learn about the op <code>mov</code> and register" +
           " <code>$dst</code> by searching in the <a href='#input-search'>top-right corner</a>." +
-          " Try changing the program to move to another location. When you're ready, move to <b>4,12</b>."
+          " Try changing the program to move to another location. When you're ready, <b>move to 4,12</b>."
       )
     }
     if (critterReached(this.sim, [4, 12]) && t_("move-tweak", "debug")) {
       print(
-        "You can debug your program by left-clicking on a critter. Try this now."
+        "You can debug your program by left-clicking on a critter. <b>Click to debug</b> your critter."
       )
     }
     if (this.sim.players.userSelection !== null && t_("debug", "maths")) {
       print(
         "In the debug panel, you see many predefined registers - inputs and outputs for your program." +
-          " Try to change to program to calculate 6 * 7 (hint: search 'multiply') and store the result" +
-          " in the user-defined register <code>$y</code>."
+          " Now change to program to <b>calculate $y = 6 * 7</b> (hint: search 'multiply', the result" +
+          " goes in user-defined register <code>$y</code>)."
       )
     }
-    if (registerContains(this.sim, "$y", 42) && t_("maths", "attack")) {
+    if (registerContains(this.sim, "$y", 42) && t_("maths", "capture")) {
       print(
-        "Fab! There's one more critical output register to learn about." +
-          " Copy <code>$ne</code> to <code>$tgt</code> to attack the nearest enemy," +
-          " if in range. Try moving to <b>15,12</b> and attack the nearest enemy."
+        "Now we'll capture a neutral base. The base position is stored in <code>$nnb</code>." +
+          " Set <code>$dst</code> to <code>$nnb</code> to move to the base and capture it."
       )
+    }
+    if (this.sim.bases.owner[2] === 0 && t_("capture", "attack")) {
       setSpawn(this.sim, [
-        { n: 4, max: 5 },
+        { n: 1, max: 3 },
         { n: 1, max: 0 },
+        { n: 1, max: 2 },
       ])
+      print(
+        "You've captured the base! Captured bases spawn critters & increase their limit." +
+          " Now if I tell you that <code>$ne</code> (R) contains the nearest enemy" +
+          " and <code>$tgt</code> (R/W) attacks a position, if in range, please" +
+          " <b>move to and attack" +
+          " the enemy critter</b>."
+      )
     }
     if (
       enemyCount(this.sim) === 0 &&
       t_("attack", "destroy-base", /*delay*/ 1)
     ) {
       print(
-        "Great stuff! Now attack the enemy base. Use debug and search to find the register containing" +
-          " the base position."
+        "Great stuff! Now <b>attack the enemy base</b>. (Hint: use <a href='#input-search'>search</a>" +
+          " and/or debug to find the register with the enemy base position.)"
       )
     }
   }
