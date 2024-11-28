@@ -501,6 +501,7 @@ class Memory {
   $id: number = -1
   $pos: Vec2 = [0, 0]
   $ne: Vec2 | null = null
+  $nf: Vec2 | null = null
   $hb: Vec2 = [0, 0]
   $eb: Vec2 | null = null
   $nnb: Vec2 | null = null
@@ -575,7 +576,8 @@ export class Crits {
           this.player[i]
         )
       }
-      mem.$ne = this.findNearestEnemy(i)
+      mem.$ne = this.findNearest(i, /*enemy=*/ true)
+      mem.$nf = this.findNearest(i, /*enemy=*/ false)
       mem.$hlth = this.health[i]
       if (this.player[i] === 0) {
         mem.$mark = players.userMarker === null ? null : [...players.userMarker]
@@ -650,11 +652,12 @@ export class Crits {
     }
   }
 
-  private findNearestEnemy(i: number): Vec2 | null {
+  private findNearest(i: number, enemy: boolean): Vec2 | null {
     let nearestDistance = Infinity
     let nearestPosition: Vec2 | null = null
     this.forEachIndex((j) => {
-      if (this.player[j] !== this.player[i]) {
+      const isEnemy = this.player[j] !== this.player[i]
+      if (i !== j && isEnemy === enemy) {
         const d = distance(this.position[i], this.position[j])
         if (d < nearestDistance) {
           nearestDistance = d

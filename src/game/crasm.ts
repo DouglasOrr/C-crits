@@ -205,6 +205,11 @@ export const RegisterSpecs = [
     description: "nearest enemy critter position",
   },
   {
+    name: "$nf",
+    spec: "x,y R",
+    description: "nearest friendly critter position",
+  },
+  {
     name: "$hb",
     spec: "x,y R",
     description: "first (home) base position",
