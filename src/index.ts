@@ -97,8 +97,8 @@ class Menu {
 
   levels() {
     this.page.showMenu("c-crits:levels", [
-      ...Levels.Levels.map((level) => ({
-        name: level.Name,
+      ...Levels.Levels.map((level, index) => ({
+        name: `${index}-${level.Name}`,
         action: () => {
           this.onPlay(level.Name)
         },
@@ -113,7 +113,7 @@ class Menu {
     achievementName: string,
     achievement: boolean
   ) {
-    this.page.showMenu(level, [
+    this.page.showMenu(`c-crits:${level}`, [
       { name: `outcome -- ${victory ? "VICTORY!" : "DEFEAT."}` },
       { name: `+ ${achievementName} -- ${achievement ? "YES!" : "NO."}` },
       { name: "back", action: () => this.levels() },

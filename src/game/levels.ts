@@ -93,8 +93,8 @@ function enemyCount(sim: Sim.Sim): number {
 
 // Levels
 
-class L0_Tutorial extends Level {
-  static Name = "0-tutorial"
+class Tutorial extends Level {
+  static Name = "tutorial"
   static Map = "tutorial"
   static AchievementUniqueOps = 7
   static Achievement = `isa-explorer (used at least ${this.AchievementUniqueOps} unique opcodes)`
@@ -117,7 +117,7 @@ class L0_Tutorial extends Level {
     )
     if (this.outcome === "victory") {
       this.achievement =
-        this.uniqueOps.size >= L0_Tutorial.AchievementUniqueOps
+        this.uniqueOps.size >= Tutorial.AchievementUniqueOps
           ? "victory"
           : "defeat"
     }
@@ -201,8 +201,8 @@ class L0_Tutorial extends Level {
   }
 }
 
-class L1_BreakingGround extends Level {
-  static Name = "1-breaking-ground"
+class BreakingGround extends Level {
+  static Name = "breaking-ground"
   static Map = "basic"
   private static AchivementMaxOps = 4
   static Achievement = `code-golf (longest program <= ${this.AchivementMaxOps} ops)`
@@ -224,7 +224,7 @@ class L1_BreakingGround extends Level {
     this.outcome = domination(this.sim)
     if (this.outcome === "victory") {
       this.achievement =
-        this.longestProgram <= L1_BreakingGround.AchivementMaxOps
+        this.longestProgram <= BreakingGround.AchivementMaxOps
           ? "victory"
           : "defeat"
     }
@@ -242,7 +242,7 @@ class L1_BreakingGround extends Level {
 
 // Level index
 
-export const Levels = [L0_Tutorial, L1_BreakingGround]
+export const Levels = [Tutorial, BreakingGround]
 
 export function get(name: string): typeof Level {
   return Levels.find((level) => level.Name === name)!
