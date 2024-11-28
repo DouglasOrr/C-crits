@@ -1,3 +1,6 @@
+import { Vec2 } from "../common"
+import * as Maps from "./maps"
+
 // Definitions
 
 export type Value = null | number | string | number[]
@@ -27,6 +30,7 @@ export enum Opcode {
   RET,
   // Other
   SEND,
+  MAPL,
 }
 const UnaryArithmetic = [["register", "literal"], "register"]
 const BinaryArithmetic = [
@@ -155,6 +159,13 @@ export const OpSpecs = [
       "send 'in' to all friendly critters, arriving in $out at next update" +
       " (if multiple critters send to the same $out, the modal max-priority value is delivered)",
   },
+  {
+    code: Opcode.MAPL,
+    syntax: UnaryArithmetic,
+    spec: "x,y $out",
+    description:
+      "query the map at x,y and store 0 (=land), 1 (=water), or 2 (=base) in $out",
+  },
 ]
 export const RegisterSpecs = [
   {
@@ -235,10 +246,11 @@ export class AssertionError extends Error {}
 export function run(
   program: Program,
   memory: Memory,
+  map: Maps.Map,
   cycleLimit: number,
   startLabel: string | null
 ): Outcome {
-  const s = new State(program, memory)
+  const s = new State(program, memory, map)
   if (startLabel !== null) {
     if (program.labels[startLabel] === undefined) {
       throw new RuntimeError(`unknown $state ${startLabel}`, -1)
@@ -312,6 +324,9 @@ export function run(
       case Opcode.SEND:
         runSend(s)
         break
+      case Opcode.MAPL:
+        runMapl(s)
+        break
       default:
         throw new AssertionError()
     }
@@ -326,7 +341,11 @@ class State {
   op: Op = { opcode: Opcode.RET, args: [], line: -1 }
   comms: CommsBuffer = {}
 
-  constructor(public program: Program, public memory: Memory) {}
+  constructor(
+    public program: Program,
+    public memory: Memory,
+    public map: Maps.Map
+  ) {}
 }
 
 function load(s: State, arg: Arg): Value {
@@ -411,6 +430,34 @@ function runSend(s: State): void {
   if (current === undefined || priority >= current.priority) {
     s.comms[out] = { value, priority }
   }
+  s.pc += 1
+}
+
+function runMapl(s: State): void {
+  const pos = load(s, s.op.args[0])
+  if (
+    !Array.isArray(pos) ||
+    pos.length !== 2 ||
+    typeof pos[0] !== "number" ||
+    typeof pos[1] !== "number"
+  ) {
+    throw new RuntimeError(
+      `MAPL expected array of length 2, got ${pos}`,
+      s.op.line
+    )
+  }
+  if (!Maps.inBounds(pos as Vec2, s.map)) {
+    throw new RuntimeError(
+      `MAPL ${pos} out of bounds` +
+        ` expected [0 <= x < ${s.map.width}, 0 <= y < ${s.map.height}] `,
+      s.op.line
+    )
+  }
+  store(
+    s,
+    s.map.tiles[s.map.width * Math.floor(pos[1]) + Math.floor(pos[0])],
+    s.op.args[1]
+  )
   s.pc += 1
 }
 

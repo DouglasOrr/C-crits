@@ -146,6 +146,10 @@ export class Page {
       if (event.ctrlKey && event.key === "Enter") {
         this.buttonUpload.click()
       }
+      if (event.ctrlKey && event.key === "f") {
+        this.inputSearch.focus()
+        event.preventDefault()
+      }
       if (event.ctrlKey && event.key.toLowerCase() === "q") {
         this.buttonQuit.click()
       }

@@ -6,6 +6,7 @@ import {
   run,
   tokenise,
 } from "../src/game/crasm"
+import * as Maps from "../src/game/maps"
 
 describe("tokenise", () => {
   it("should split a line into tokens", () => {
@@ -86,6 +87,6 @@ test("parse--run", () => {
     ret
   `)
   const memory = {} as Memory
-  run(program, memory, 100, null)
+  run(program, memory, {} as Maps.Map, 100, null)
   expect(memory["$dst"]).toEqual([12, 50])
 })

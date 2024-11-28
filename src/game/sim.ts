@@ -586,6 +586,7 @@ export class Crits {
         const outcome = Crasm.run(
           players.program[this.player[i]],
           mem as unknown as Crasm.Memory,
+          map,
           S.cycleLimit,
           mem.$state
         )
