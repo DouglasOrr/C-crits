@@ -44,7 +44,7 @@ export const S = {
 
   // Base
   defaultBaseCritters: 10, // #
-  spawnTime: 2.5, // s
+  spawnTime: 3, // s
   spawnRingRatio: 1.5, // #
   healRange: 2.5, // m
   healRadius: 0.3, // m
@@ -52,7 +52,7 @@ export const S = {
   healing: 5, // hp
 
   // Neutral base
-  captureRange: 3, // m
+  captureRange: 4, // m
   captureTime: 7, // s
   captureMultiple: 4, // #
 

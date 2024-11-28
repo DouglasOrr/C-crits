@@ -181,7 +181,7 @@ a {
   padding: 0;
   margin: 0;
   max-height: 100%;
-  font-size: small;
+  font-size: smaller;
   cursor: default;
 }
 #instructions > li {

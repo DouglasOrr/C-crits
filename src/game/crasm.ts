@@ -25,6 +25,7 @@ export enum Opcode {
   // Control flow
   JMP,
   JEZ,
+  JNZ,
   JLZ,
   JGZ,
   RET,
@@ -130,7 +131,13 @@ export const OpSpecs = [
     code: Opcode.JEZ,
     syntax: UnaryControlFlow,
     spec: "value @label",
-    description: "jump to @label if value == 0 or null",
+    description: "jump to @label if value == (0 or null)",
+  },
+  {
+    code: Opcode.JNZ,
+    syntax: UnaryControlFlow,
+    spec: "value @label",
+    description: "jump to @label if value != (0 or null)",
   },
   {
     code: Opcode.JLZ,
@@ -315,6 +322,9 @@ export function run(
         break
       case Opcode.JEZ:
         runConditionalJump(s, exprEZ)
+        break
+      case Opcode.JNZ:
+        runConditionalJump(s, exprNZ)
         break
       case Opcode.JLZ:
         runConditionalJump(s, exprLZ)
@@ -602,6 +612,10 @@ function exprEZ(s: State, a: Value): boolean {
   throw new RuntimeError(`can't compare ${a} to 0`, s.op.line)
 }
 
+function exprNZ(s: State, a: Value): boolean {
+  return !exprEZ(s, a)
+}
+
 function exprLZ(s: State, a: Value): boolean {
   if (typeof a === "number") {
     return a < 0
@@ -759,6 +773,18 @@ export function parse(source: string): Program {
 export type SearchResult = { spec: string; description: string }
 
 export function searchDocs(query: string): SearchResult[] {
+  if (query === "") {
+    return [
+      {
+        spec: "opcode",
+        description: OpSpecs.map((s) => Opcode[s.code]).join(" "),
+      },
+      {
+        spec: "$register",
+        description: RegisterSpecs.map((s) => s.name).join(" "),
+      },
+    ]
+  }
   query = query.toLowerCase()
   const results: SearchResult[] = []
   const added = new Set<string>()

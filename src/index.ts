@@ -107,6 +107,19 @@ class Menu {
     ])
   }
 
+  gameOver(
+    level: string,
+    victory: boolean,
+    achievementName: string,
+    achievement: boolean
+  ) {
+    this.page.showMenu(level, [
+      { name: `outcome -- ${victory ? "VICTORY!" : "DEFEAT."}` },
+      { name: `+ ${achievementName} -- ${achievement ? "YES!" : "NO."}` },
+      { name: "back", action: () => this.levels() },
+    ])
+  }
+
   settings() {
     this.page.showMenu("c-crits:settings", [
       {
@@ -209,7 +222,13 @@ class Game {
     this.loop.finish()
     this.page.events = () => {}
     this.views.forEach((view) => view.dispose())
-    this.menu.main()
+    const levelCls = this.level.constructor as any
+    this.menu.gameOver(
+      levelCls.Name,
+      this.level.outcome === "victory",
+      levelCls.Achievement,
+      this.level.achievement === "victory"
+    )
   }
 }
 

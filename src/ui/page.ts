@@ -81,7 +81,7 @@ export class Page {
   buttonPlayPause: HTMLElement
   buttonUpload: HTMLElement
   buttonQuit: HTMLElement
-  inputSearch: HTMLElement
+  inputSearch: HTMLInputElement
   searchResults: HTMLElement
   editor: PrismEditor
   output: HTMLElement
@@ -107,7 +107,9 @@ export class Page {
     this.buttonPlayPause = document.getElementById("button-play-pause")!
     this.buttonUpload = document.getElementById("button-upload")!
     this.buttonQuit = document.getElementById("button-quit")!
-    this.inputSearch = document.getElementById("input-search")!
+    this.inputSearch = document.getElementById(
+      "input-search"
+    )! as HTMLInputElement
     this.searchResults = document.getElementById("search-results")!
     this.output = document.getElementById("output")!
     this.debug = document.getElementById("debug")!
@@ -183,16 +185,10 @@ export class Page {
       }
     })
 
-    this.inputSearch.addEventListener("focus", (e) => {
-      this.searchResults.style.display = "block"
-    })
-    this.inputSearch.addEventListener("blur", (e) => {
-      this.searchResults.style.display = "none"
-    })
-    this.inputSearch.addEventListener("input", (e) => {
-      const input = e.target as HTMLInputElement
+    const updateSearchResults = () => {
+      const input = this.inputSearch
       const query = input.value.trim()
-      const results = query === "" ? [] : Crasm.searchDocs(query).slice(0, 6)
+      const results = Crasm.searchDocs(query).slice(0, 6)
 
       this.searchResults.style.width = `${input.clientWidth}px`
       this.searchResults.style.top = `${input.offsetTop + input.offsetHeight}px`
@@ -210,6 +206,16 @@ export class Page {
         })
       )
       this.searchResults.style.display = results.length > 0 ? "block" : "none"
+    }
+    this.inputSearch.addEventListener("focus", (e) => {
+      this.searchResults.style.display = "block"
+      updateSearchResults()
+    })
+    this.inputSearch.addEventListener("blur", (e) => {
+      this.searchResults.style.display = "none"
+    })
+    this.inputSearch.addEventListener("input", (e) => {
+      updateSearchResults()
     })
 
     // Turn typing commands into menu clicks
@@ -343,7 +349,7 @@ export class Page {
 
   showMenu(
     title: string,
-    options: { name: string; action: (e: HTMLElement) => void }[]
+    options: { name: string; action?: (e: HTMLElement) => void }[]
   ): void {
     this.menu.style.display = "block"
     this.menuTitle.forEach((node) => {
@@ -353,9 +359,11 @@ export class Page {
       ...options.map((option) => {
         const li = document.createElement("li")
         li.textContent = option.name
-        li.addEventListener("click", async () => {
-          option.action(li)
-        })
+        if (option.action !== undefined) {
+          li.addEventListener("click", async () => {
+            option.action!(li)
+          })
+        }
         return li
       })
     )

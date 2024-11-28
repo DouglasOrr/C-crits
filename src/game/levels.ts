@@ -7,11 +7,12 @@ import { distance } from "../common"
 // Utilities for common level operations
 
 type State = { name: string; time: number }
-type Outcome = "victory" | "defeat" | null
+export type Outcome = "victory" | "defeat" | null
 
 export abstract class Level {
   state: State = { name: "init", time: 0 }
   outcome: Outcome = null
+  achievement: Outcome = null
 
   constructor(protected sim: Sim.Sim, protected page: Page.Page) {
     this.init()
@@ -95,6 +96,9 @@ function enemyCount(sim: Sim.Sim): number {
 class L0_Tutorial extends Level {
   static Name = "0-tutorial"
   static Map = "tutorial"
+  static AchievementUniqueOps = 7
+  static Achievement = `isa-explorer (used at least ${this.AchievementUniqueOps} unique opcodes)`
+  private uniqueOps = new Set<Crasm.Opcode>()
 
   init() {
     setAI(this.sim, ["mov 12,12 $dst", "mov $ne $tgt"].join("\n"))
@@ -108,6 +112,15 @@ class L0_Tutorial extends Level {
     this.outcome = domination(this.sim)
     const print = this.page.addInstruction.bind(this.page)
     const t_ = this.transition.bind(this)
+    this.sim.players.program[0].ops.forEach((op) =>
+      this.uniqueOps.add(op.opcode)
+    )
+    if (this.outcome === "victory") {
+      this.achievement =
+        this.uniqueOps.size >= L0_Tutorial.AchievementUniqueOps
+          ? "victory"
+          : "defeat"
+    }
 
     if (t_("init", "welcome", /*delay*/ 1)) {
       print(
@@ -155,53 +168,81 @@ class L0_Tutorial extends Level {
           " Set <code>$dst</code> to <code>$nnb</code> to move to the base and capture it."
       )
     }
+    // if (this.state.name == "init") {
+    //   print("fast-forward...")
+    //   this.state = { name: "capture", time: this.sim.time }
+    // }
     if (this.sim.bases.owner[2] === 0 && t_("capture", "attack")) {
       setSpawn(this.sim, [
-        { n: 1, max: 3 },
-        { n: 1, max: 0 },
-        { n: 1, max: 2 },
+        { n: 1, max: 4 },
+        { n: 1, max: 1 },
+        { n: 1, max: 4 },
       ])
       print(
         "You've captured the base! Captured bases spawn critters & increase their limit." +
           " Now if I tell you that <code>$ne</code> (R) contains the nearest enemy" +
           " and <code>$tgt</code> (R/W) attacks a position, if in range, please" +
-          " <b>move to and attack" +
-          " the enemy critter</b>."
+          " <b>move to and attack the enemy critter</b>."
       )
     }
     if (
       enemyCount(this.sim) === 0 &&
-      t_("attack", "destroy-base", /*delay*/ 1)
+      t_("attack", "destroy-base", /*delay*/ 8)
     ) {
       print(
-        "Great stuff! Now <b>attack the enemy base</b>. (Hint: use <a href='#input-search'>search</a>" +
-          " and/or debug to find the register with the enemy base position.)"
+        "Great! But it looks like the game will go on forever. To finish things, we need" +
+          " to learn about control flow. The <code>jez $x @label</code> instruction jumps" +
+          " to <code>@label</code> if <code>$x</code> is zero or null. Use " +
+          " <code>jez $ne @attack-base</code>, and write some code after <code>@attack-base</code>" +
+          " to <b>attack and destroy the enemy base</b>. (Hint: use <a href='#input-search'>search</a>" +
+          " to learn about <code>ret</code> and to find out which register holds the enemy base position)."
       )
     }
   }
 }
 
-class L1_Simple extends Level {
+class L1_BreakingGround extends Level {
   static Name = "1-breaking-ground"
-  static Map = "standard"
+  static Map = "basic"
+  private static AchivementMaxOps = 4
+  static Achievement = `code-golf (longest program <= ${this.AchivementMaxOps} ops)`
+  private longestProgram: number = 0
 
   init() {
     setAI(this.sim, AI.Defensive, AI.Defensive)
     setSpawn(this.sim, [
-      { n: 10, max: 20 },
-      { n: 10, max: 20 },
-      { n: 1, max: 5 },
-      { n: 1, max: 5 },
+      { n: 15, max: 15 },
+      { n: 15, max: 15 },
+      { n: 5, max: 5 },
     ])
   }
   update() {
+    this.longestProgram = Math.max(
+      this.longestProgram,
+      this.sim.players.program[0].ops.length
+    )
     this.outcome = domination(this.sim)
+    if (this.outcome === "victory") {
+      this.achievement =
+        this.longestProgram <= L1_BreakingGround.AchivementMaxOps
+          ? "victory"
+          : "defeat"
+    }
+
+    const print = this.page.addInstruction.bind(this.page)
+    const t_ = this.transition.bind(this)
+
+    if (t_("init", "welcome", /*delay*/ 1)) {
+      print(
+        "Your first solo challenge. It's simple - <b>destroy the enemy base</b>! Good luck."
+      )
+    }
   }
 }
 
 // Level index
 
-export const Levels = [L0_Tutorial, L1_Simple]
+export const Levels = [L0_Tutorial, L1_BreakingGround]
 
 export function get(name: string): typeof Level {
   return Levels.find((level) => level.Name === name)!
