@@ -33,18 +33,18 @@ export const S = {
 
   // Attack
   attackTime: 0.5, // s
-  attackRange: 2, // m
+  attackRange: 2.5, // m
   directionAttackTolerance: Math.PI / 16, // rad
-  bulletSpeed: 3, // m/s
+  bulletSpeed: 4.5, // m/s
   explosionRadius: 0.6, // m
   damage: 10, // hp
   health: 100, // hp
-  baseHealth: 750, // hp
-  baseHealing: 15, // hp/s
+  baseHealth: 700, // hp
+  baseHealing: 10, // hp/s
 
   // Base
   defaultBaseCritters: 10, // #
-  spawnTime: 3, // s
+  spawnTime: 3.5, // s
   spawnRingRatio: 1.5, // #
   healRange: 2.5, // m
   healRadius: 0.3, // m
@@ -500,6 +500,7 @@ class Memory {
   // Inputs
   $id: number = -1
   $pos: Vec2 = [0, 0]
+  $t: number = 0
   $ne: Vec2 | null = null
   $nf: Vec2 | null = null
   $hb: Vec2 = [0, 0]
@@ -559,7 +560,12 @@ export class Crits {
     })
   }
 
-  programUpdate(players: Players, bases: Bases, map: Maps.Map): void {
+  programUpdate(
+    players: Players,
+    bases: Bases,
+    map: Maps.Map,
+    time: number
+  ): void {
     this.forEachIndex((i) => {
       const mem = this.memory[i]
       this.error[i] = null
@@ -568,6 +574,7 @@ export class Crits {
       Object.assign(mem, players.commsIn[this.player[i]])
       mem.$id = this.id[i]
       mem.$pos = [...this.position[i]]
+      mem.$t = time
       mem.$hb = bases.position[this.player[i]]
       if (this.player[i] <= 1) {
         mem.$eb = bases.position[1 - this.player[i]]
@@ -992,7 +999,7 @@ export class Sim {
 
   programUpdate(): void {
     this.players.preProgramUpdate()
-    this.crits.programUpdate(this.players, this.bases, this.map)
+    this.crits.programUpdate(this.players, this.bases, this.map, this.time)
     this.players.postProgramUpdate(this.crits)
   }
 

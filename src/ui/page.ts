@@ -75,6 +75,7 @@ export class Page {
   sim: HTMLElement
   renderer: THREE.WebGLRenderer
   // Overlays
+  gameTime: HTMLElement
   fpsCounter: HTMLElement
   dev: HTMLElement
   // Dev panel
@@ -101,6 +102,7 @@ export class Page {
     // Main
     this.sim = document.getElementById("col-sim")!
     // Overlays
+    this.gameTime = document.getElementById("overlay-time")!
     this.fpsCounter = document.getElementById("overlay-fps")!
     this.dev = document.getElementById("overlay-dev")!
     // Dev panel
@@ -267,6 +269,18 @@ export class Page {
         position: [e.clientX, e.clientY],
       })
     })
+  }
+
+  updateGameTime(time: number): void {
+    if (this.gameTime) {
+      const minutes = Math.floor(time / 60)
+        .toString()
+        .padStart(2, "0")
+      const seconds = Math.floor(time % 60)
+        .toString()
+        .padStart(2, "0")
+      this.gameTime.textContent = `${minutes}:${seconds}`
+    }
   }
 
   updateDebug(event: Sim.Event, data?: any): void {

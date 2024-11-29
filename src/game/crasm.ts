@@ -202,6 +202,11 @@ export const RegisterSpecs = [
     description: "current position",
   },
   {
+    name: "$t",
+    spec: "number R",
+    description: "game time",
+  },
+  {
     name: "$hlth",
     spec: "number R",
     description: "current health",

@@ -184,6 +184,7 @@ class Game {
   update(): void {
     this.sim.update()
     this.level.update()
+    this.page.updateGameTime(this.sim.time)
     if (this.level.outcome !== null) {
       this.finish()
     }

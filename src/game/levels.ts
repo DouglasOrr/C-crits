@@ -2,7 +2,7 @@ import * as AI from "./ai"
 import * as Crasm from "./crasm"
 import * as Sim from "./sim"
 import * as Page from "../ui/page"
-import { distance } from "../common"
+import { distance, Vec2 } from "../common"
 
 // Utilities for common level operations
 
@@ -91,6 +91,49 @@ function enemyCount(sim: Sim.Sim): number {
   return count
 }
 
+function checkDistances(sim: Sim.Sim, target: Vec2, register: string): boolean {
+  let correct = true
+  sim.crits.forEachIndex((i) => {
+    if (sim.crits.player[i] === 0) {
+      correct =
+        correct &&
+        Math.abs(
+          (sim.crits.memory[i] as any)[register] -
+            distance(sim.crits.position[i], target)
+        ) < 0.5
+    }
+  })
+  return correct
+}
+
+function checkMaxDistanceBetweenCritters(sim: Sim.Sim, limit: number): boolean {
+  let allClose = true
+  sim.crits.forEachIndex((i) => {
+    if (sim.crits.player[i] === 0) {
+      sim.crits.forEachIndex((j) => {
+        if (sim.crits.player[j] === 0) {
+          allClose =
+            allClose &&
+            distance(sim.crits.position[i], sim.crits.position[j]) <= limit
+        }
+      })
+    }
+  })
+  return allClose
+}
+
+function checkAtMarker(sim: Sim.Sim, limit: number): boolean {
+  let atMarker = sim.players.userMarker !== null
+  sim.crits.forEachIndex((i) => {
+    if (sim.crits.player[i] === 0) {
+      atMarker =
+        atMarker &&
+        distance(sim.players.userMarker!, sim.crits.position[i]) < limit
+    }
+  })
+  return atMarker
+}
+
 // Levels
 
 class Tutorial extends Level {
@@ -110,8 +153,6 @@ class Tutorial extends Level {
   }
   update() {
     this.outcome = domination(this.sim)
-    const print = this.page.addInstruction.bind(this.page)
-    const t_ = this.transition.bind(this)
     this.sim.players.program[0].ops.forEach((op) =>
       this.uniqueOps.add(op.opcode)
     )
@@ -121,6 +162,8 @@ class Tutorial extends Level {
           ? "victory"
           : "defeat"
     }
+    const print = this.page.addInstruction.bind(this.page)
+    const t_ = this.transition.bind(this)
 
     if (t_("init", "welcome", /*delay*/ 1)) {
       print(
@@ -228,7 +271,6 @@ class BreakingGround extends Level {
           ? "victory"
           : "defeat"
     }
-
     const print = this.page.addInstruction.bind(this.page)
     const t_ = this.transition.bind(this)
 
@@ -240,9 +282,135 @@ class BreakingGround extends Level {
   }
 }
 
+class AdvancedTutorial extends Level {
+  static Name = "advanced-crasm"
+  static Map = "advtutorial"
+  static AchievementUniqueOps = 12
+  static Achievement = `isa-expert (used at least ${this.AchievementUniqueOps} unique opcodes)`
+  private uniqueOps = new Set<Crasm.Opcode>()
+
+  init() {
+    setAI(this.sim, AI.Defensive, AI.Defensive)
+    setSpawn(this.sim, [
+      { n: 15, max: 15 },
+      { n: 5, max: 5 },
+      { n: 20, max: 20 },
+    ])
+  }
+  update() {
+    this.outcome = domination(this.sim)
+    this.sim.players.program[0].ops.forEach((op) =>
+      this.uniqueOps.add(op.opcode)
+    )
+    if (this.outcome === "victory") {
+      this.achievement =
+        this.uniqueOps.size >= AdvancedTutorial.AchievementUniqueOps
+          ? "victory"
+          : "defeat"
+    }
+    const print = this.page.addInstruction.bind(this.page)
+    const t_ = this.transition.bind(this)
+
+    if (t_("init", "welcome", /*delay*/ 1)) {
+      print(
+        "In this second (final) tutorial, we'll learn some of the advanced aspects of crasm."
+      )
+    }
+    if (t_("welcome", "distance", /*delay*/ 3)) {
+      print(
+        "We often need to calculate distance from our position to something on the map." +
+          " To calculate distance, you can use <code>sub</code> and <code>vlen</code>." +
+          " Please calculate the <b>distance from <code>$pos</code> to <code>0,6</code>" +
+          " and store it in <code>$d</code></b>."
+      )
+    }
+    if (
+      checkDistances(this.sim, [0, 6], "$d") &&
+      t_("distance", "move-closest")
+    ) {
+      print(
+        "Great! Now do the same for <code>12,6</code> (in <code>$d2</code>) and" +
+          " <b>move to the closer of <code>0,6</code> and <code>12,6</code></b>" +
+          " (hint: <code>sub</code>, <code>jlz</code>)."
+      )
+    }
+    if (
+      (critterReached(this.sim, [0, 6]) || critterReached(this.sim, [12, 6])) &&
+      t_("move-closest", "vote-intro")
+    ) {
+      print(
+        "Your critters should now be in two groups (don't worry if not)." +
+          " Each critter runs its own program and makes its own decisions." +
+          " To make a group decision, we can use <code>send</code>..."
+      )
+    }
+    if (t_("vote-intro", "vote", /*delay*/ 4)) {
+      print(
+        "The <code>send</code> instruction sends a message to all critters." +
+          " It takes a priority. But if all critters give the same priority, the majority vote is used." +
+          " Try sending the closer of <code>0,6</code> and <code>12,6</code>, and <b>have all critters move" +
+          " to the majority vote</b>."
+      )
+    }
+    if (checkMaxDistanceBetweenCritters(this.sim, 5) && t_("vote", "mark")) {
+      print(
+        "Brill! One final trick - if you right click on the screen, you can set a marker." +
+          " (Right click in the same place to remove it.)" +
+          " Your critters can see that marker in <code>$mark</code>." +
+          " Now </b>set a marker, and have your critters move to it</b>."
+      )
+    }
+    // if (t_("init", "mark")) {
+    //   print("fast-forward")
+    // }
+    if (checkAtMarker(this.sim, 5) && t_("mark", "done")) {
+      print(
+        "Well done! Now <b>destroy the enemy base</b>." +
+          " (Hint: you probably want to avoid that neutral base that is stronger than you," +
+          " e.g. use a marker. Also think about what your reinforcements are doing!)"
+      )
+    }
+  }
+}
+
+class Rush extends Level {
+  static Name = "rush"
+  static Map = "rush"
+  static AchievementTime = 90
+  static Achievement = `sudden-death (win in under ${this.AchievementTime} seconds)`
+
+  init() {
+    setAI(this.sim, AI.StaticThenAttack, AI.Defensive)
+    setSpawn(this.sim, [
+      { n: 20, max: 20 },
+      { n: 15, max: 30 },
+      { n: 1, max: 10 },
+      { n: 1, max: 10 },
+      { n: 1, max: 10 },
+      { n: 1, max: 10 },
+    ])
+  }
+  update() {
+    this.outcome = domination(this.sim)
+    if (this.outcome === "victory") {
+      this.achievement =
+        this.sim.time < Rush.AchievementTime ? "victory" : "defeat"
+    }
+    const print = this.page.addInstruction.bind(this.page)
+    const t_ = this.transition.bind(this)
+
+    if (t_("init", "welcome", /*delay*/ 1)) {
+      print(
+        "Your enemy is stronger than you. You'll need to be quick - " +
+          "<b>destroy the enemy base</b> before they overwhelm you."
+      )
+    }
+  }
+}
+
 // Level index
 
-export const Levels = [Tutorial, BreakingGround]
+export const Levels = [Tutorial, BreakingGround, AdvancedTutorial, Rush]
 
 export function get(name: string): typeof Level {
   return Levels.find((level) => level.Name === name)!
