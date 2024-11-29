@@ -261,7 +261,11 @@ async function load() {
   menu.onPlay = (level) => {
     loadLevel(page, playSound, menu, textures, level)
   }
-  const level = new URLSearchParams(window.location.search).get("level")
+  const params = new URLSearchParams(window.location.search)
+  if (params.has("debug")) {
+    Sim.enableDebugMode()
+  }
+  const level = params.get("level")
   if (level !== null) {
     loadLevel(page, playSound, menu, textures, level)
   } else {

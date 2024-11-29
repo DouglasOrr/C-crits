@@ -38,6 +38,7 @@ export const S = {
   bulletSpeed: 4.5, // m/s
   explosionRadius: 0.6, // m
   damage: 10, // hp
+  waterDamageMultiplier: 2, // #
   health: 100, // hp
   baseHealth: 700, // hp
   baseHealing: 10, // hp/s
@@ -61,6 +62,7 @@ export const S = {
   critterDeathTime: 0.5, // s
   baseDeathTime: 4.0, // s
   selectionRadiusRatio: 2.0, // #
+  markerDismissRadius: 0.25, // m
 }
 
 export enum Event {
@@ -75,6 +77,11 @@ export enum Event {
   ProgramDebug,
 }
 export type EventListener = (event: Event, data?: any) => void
+
+var DebugMode = false
+export function enableDebugMode() {
+  DebugMode = true
+}
 
 export function listeners(...listeners: EventListener[]): EventListener {
   return (event: Event, data?: any) => {
@@ -142,7 +149,7 @@ export class Bases {
   spawnRecharge: number[]
   healRecharge: number[]
 
-  constructor(private map: Maps.Map, private listener: EventListener) {
+  constructor(map: Maps.Map, private listener: EventListener) {
     const n = map.basePosition.length
     // Static
     this.position = map.basePosition.map((p) => v2Add(p, [0.5, 0.5]))
@@ -207,7 +214,12 @@ export class Bases {
     })
   }
 
-  spawnCritter(base: number, crits: Crits, players: Players): void {
+  spawnCritter(
+    base: number,
+    crits: Crits,
+    players: Players,
+    map: Maps.Map
+  ): void {
     const basePosition = this.position[base]
     const cosA = Math.cos(this.direction[base])
     const sinA = Math.sin(this.direction[base])
@@ -225,7 +237,10 @@ export class Bases {
             d0[0] * -sinA + d0[1] * cosA,
           ]
           const position = v2Add(basePosition, delta)
-          if (crits.collide(position) === null) {
+          if (
+            crits.collide(position) === null &&
+            Maps.inBounds(position, map)
+          ) {
             crits.spawn(
               this.owner[base],
               position,
@@ -241,7 +256,12 @@ export class Bases {
 
   // Update
 
-  private respawn(base: number, crits: Crits, players: Players): void {
+  private respawn(
+    base: number,
+    crits: Crits,
+    players: Players,
+    map: Maps.Map
+  ): void {
     this.spawnRecharge[base] -= S.dt
     if (this.spawnRecharge[base] <= 0) {
       const owner = this.owner[base]
@@ -251,7 +271,7 @@ export class Bases {
         0
       )
       if (count < allowedCount) {
-        this.spawnCritter(base, crits, players)
+        this.spawnCritter(base, crits, players, map)
         this.spawnRecharge[base] = S.spawnTime
       }
     }
@@ -344,13 +364,18 @@ export class Bases {
     }
   }
 
-  update(crits: Crits, healBullets: Bullets, players: Players): void {
+  update(
+    crits: Crits,
+    healBullets: Bullets,
+    players: Players,
+    map: Maps.Map
+  ): void {
     this.forEachIndex((i) => {
       this.health[i] = Math.min(
         this.health[i] + S.baseHealing * S.dt,
         S.baseHealth
       )
-      this.respawn(i, crits, players)
+      this.respawn(i, crits, players, map)
       this.fireHealBullets(i, crits, healBullets)
       if (Bases.isNeutralBase(i)) {
         this.capture(i, crits)
@@ -367,6 +392,7 @@ export class Players {
   commsOut: { [key: string]: { priority: number; values: Crasm.Value[] } }[]
   errorsSinceLastLoad: number[]
   // User control
+  userProgram: string = ""
   userMarker: Vec2 | null = null
   userSelection: number | null = null
   userSelectionId: number | null = null
@@ -395,6 +421,7 @@ export class Players {
 
   userLoadProgram(program: string): void {
     try {
+      this.userProgram = program
       this.program[0] = Crasm.parse(program)
       this.listener(Event.ProgramLoad)
       this.errorsSinceLastLoad[0] = 0
@@ -410,16 +437,19 @@ export class Players {
   userSetMarker(position: Vec2): void {
     if (
       this.userMarker !== null &&
-      v2Equal(v2Floor(this.userMarker), v2Floor(position))
+      distance(this.userMarker, position) < S.markerDismissRadius
     ) {
       this.userMarker = null // dismiss
     } else {
-      this.userMarker = v2Add(v2Floor(position), [0.5, 0.5])
+      this.userMarker = position
     }
   }
 
   userSelect(position: Vec2, crits: Crits): void {
-    this.userSelection = crits.selectAtPosition(/*player=*/ 0, position)
+    this.userSelection = crits.selectAtPosition(
+      position,
+      /*player=*/ DebugMode ? undefined : 0
+    )
     if (this.userSelection === null) {
       this.userSelectionId = null
       this.listener(Event.ProgramDebug, null)
@@ -500,13 +530,14 @@ class Memory {
   // Inputs
   $id: number = -1
   $pos: Vec2 = [0, 0]
-  $t: number = 0
+  $time: number = 0
   $ne: Vec2 | null = null
   $nf: Vec2 | null = null
   $hb: Vec2 = [0, 0]
   $eb: Vec2 | null = null
   $nnb: Vec2 | null = null
   $mark: Vec2 | null = null
+  $fcc: number = 0
   $hlth: number = 0
 }
 
@@ -574,7 +605,7 @@ export class Crits {
       Object.assign(mem, players.commsIn[this.player[i]])
       mem.$id = this.id[i]
       mem.$pos = [...this.position[i]]
-      mem.$t = time
+      mem.$time = time
       mem.$hb = bases.position[this.player[i]]
       if (this.player[i] <= 1) {
         mem.$eb = bases.position[1 - this.player[i]]
@@ -586,6 +617,10 @@ export class Crits {
       mem.$ne = this.findNearest(i, /*enemy=*/ true)
       mem.$nf = this.findNearest(i, /*enemy=*/ false)
       mem.$hlth = this.health[i]
+      mem.$fcc = this.player.reduce(
+        (sum, p) => sum + +(p === this.player[i]),
+        0
+      )
       if (this.player[i] === 0) {
         mem.$mark = players.userMarker === null ? null : [...players.userMarker]
       }
@@ -750,13 +785,19 @@ export class Crits {
     return null
   }
 
-  explode(p: Vec2) {
+  explode(p: Vec2, map: Maps.Map): void {
     this.forEachIndex((i) => {
       if (
         this.health[i] > 0 &&
         distance(this.position[i], p) < S.explosionRadius
       ) {
-        this.health[i] = Math.max(this.health[i] - S.damage, 0)
+        const cell = v2Floor(this.position[i])
+        const damage =
+          S.damage *
+          (map.tiles[cell[1] * map.width + cell[0]] === Maps.Tile.Water
+            ? S.waterDamageMultiplier
+            : 1)
+        this.health[i] = Math.max(this.health[i] - damage, 0)
         if (this.health[i] === 0) {
           this.listener(Event.CritDeath)
         }
@@ -776,11 +817,11 @@ export class Crits {
     })
   }
 
-  selectAtPosition(player: number, position: Vec2): number | null {
+  selectAtPosition(position: Vec2, player?: number): number | null {
     let minDistance = S.selectionRadiusRatio * S.radius
     let minIndex = null
     for (let i = 0; i < this.position.length; ++i) {
-      if (this.player[i] === player) {
+      if (player === undefined || this.player[i] === player) {
         const d = distance(this.position[i], position)
         if (d < minDistance) {
           minDistance = d
@@ -795,13 +836,21 @@ export class Crits {
 
   // Returns [speed, angularVelocity]
   private planMove(i: number, pathfinder: Maps.Pathfinder): [number, number] {
-    if (this.destination[i] === null) {
+    const destination = this.destination[i]
+    if (destination === null) {
       return [0, 0]
     }
     const position = this.position[i]
-    const pathDirection = pathfinder.direction(position, this.destination[i])
+    const pathDirection = pathfinder.direction(position, destination)
+    let targetAngle = pathDirection * (Math.PI / 4)
     if (pathDirection === Maps.NoDirection) {
-      return [0, 0]
+      if (distance(position, destination) < S.radius) {
+        return [0, 0]
+      }
+      targetAngle = Math.atan2(
+        destination[0] - position[0],
+        destination[1] - position[1]
+      )
     }
     // How fast can we move?
     const tileXY = v2Floor(position)
@@ -809,7 +858,6 @@ export class Crits {
       pathfinder.map.tiles[tileXY[1] * pathfinder.map.width + tileXY[0]]
     const moveSpeed = tile == Maps.Tile.Water ? S.waterSpeed : S.speed
     // Adjust the target angle based on local collisions
-    let targetAngle = pathDirection * (Math.PI / 4)
     const pathCollision = this.collide(
       [
         position[0] + S.dt * moveSpeed * Math.sin(targetAngle),
@@ -980,7 +1028,7 @@ export class Sim {
 
   spawnCritters(base: number, n: number): void {
     for (let i = 0; i < n; ++i) {
-      this.bases.spawnCritter(base, this.crits, this.players)
+      this.bases.spawnCritter(base, this.crits, this.players, this.map)
     }
   }
 
@@ -1007,10 +1055,10 @@ export class Sim {
     this.time += S.dt
     this.bullets.update((p: Vec2) => {
       this.bases.explode(p)
-      this.crits.explode(p)
+      this.crits.explode(p, this.map)
     })
     this.healBullets.update((p: Vec2) => this.crits.heal(p))
     this.crits.update(this.bullets, this.pathfinder)
-    this.bases.update(this.crits, this.healBullets, this.players)
+    this.bases.update(this.crits, this.healBullets, this.players, this.map)
   }
 }

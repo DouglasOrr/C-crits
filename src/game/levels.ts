@@ -408,9 +408,112 @@ class Rush extends Level {
   }
 }
 
+class Survival extends Level {
+  static Name = "survival"
+  static Map = "survival"
+  static SurvivalTime = 120
+  static Achievement = `untouchable (your base didn't take damage)`
+  private untouched = true
+
+  init() {
+    setAI(this.sim, AI.SurvivalWaves, AI.Defensive)
+    setSpawn(this.sim, [
+      { n: 15, max: 20 },
+      { n: 20, max: 0 },
+      { n: 1, max: 0 },
+      { n: 0, max: 10 },
+    ])
+  }
+  update() {
+    if (this.sim.bases.health[0] < Sim.S.baseHealth) {
+      this.untouched = false
+    }
+    this.outcome = domination(this.sim)
+    if (this.sim.time > Survival.SurvivalTime) {
+      this.outcome = "victory"
+    }
+    if (this.outcome === "victory") {
+      this.achievement = this.untouched ? "victory" : "defeat"
+    }
+    const print = this.page.addInstruction.bind(this.page)
+    const t_ = this.transition.bind(this)
+
+    if (t_("init", "wave1", /*delay*/ 1)) {
+      print(
+        "You're against overwhelming odds - but you just need to" +
+          ` <b>survive for ${Survival.SurvivalTime} s</b>.` +
+          " (Note: critters in water move slower and take double damage.)"
+      )
+    }
+    if (this.sim.time > 50 && t_("wave1", "wave2")) {
+      this.sim.spawnCritters(1, 15)
+      this.sim.spawnCritters(2, 15)
+    }
+    if (this.sim.time > 85 && t_("wave2", "wave3")) {
+      this.sim.spawnCritters(1, 20)
+      this.sim.spawnCritters(2, 20)
+    }
+  }
+}
+
+class Madness extends Level {
+  static Name = "madness"
+  static Map = "madness"
+  static Achievement = "fire-and-forget (use a single program and no markers)"
+  private fireAndForget = true
+  private lastProgram: string = ""
+
+  init() {
+    setAI(this.sim, AI.MadnessAggressive, AI.Defensive)
+    setSpawn(this.sim, [
+      { n: 10, max: 30 },
+      { n: 30, max: 30 },
+      { n: 0, max: 15 },
+      { n: 0, max: 15 },
+      { n: 0, max: 15 },
+      { n: 0, max: 15 },
+      { n: 0, max: 15 },
+    ])
+  }
+  update() {
+    if (this.sim.players.userMarker !== null) {
+      this.fireAndForget = false
+    }
+    if (
+      this.fireAndForget &&
+      this.lastProgram !== "" &&
+      this.lastProgram !== this.sim.players.userProgram
+    ) {
+      this.fireAndForget = false
+    } else {
+      this.lastProgram = this.sim.players.userProgram
+    }
+    this.outcome = domination(this.sim)
+    if (this.outcome === "victory") {
+      this.achievement = this.fireAndForget ? "victory" : "defeat"
+    }
+    const print = this.page.addInstruction.bind(this.page)
+    const t_ = this.transition.bind(this)
+
+    if (t_("init", "welcome", /*delay*/ 1)) {
+      print(
+        "It's a dangerous map! Capture the neutrals as you wish," +
+          " then <b>destroy the enemy base</b>."
+      )
+    }
+  }
+}
+
 // Level index
 
-export const Levels = [Tutorial, BreakingGround, AdvancedTutorial, Rush]
+export const Levels = [
+  Tutorial,
+  BreakingGround,
+  AdvancedTutorial,
+  Rush,
+  Survival,
+  Madness,
+]
 
 export function get(name: string): typeof Level {
   return Levels.find((level) => level.Name === name)!

@@ -202,14 +202,9 @@ export const RegisterSpecs = [
     description: "current position",
   },
   {
-    name: "$t",
+    name: "$time",
     spec: "number R",
     description: "game time",
-  },
-  {
-    name: "$hlth",
-    spec: "number R",
-    description: "current health",
   },
   {
     name: "$ne",
@@ -240,6 +235,16 @@ export const RegisterSpecs = [
     name: "$mark",
     spec: "x,y R",
     description: "user-controlled manual marker position",
+  },
+  {
+    name: "$hlth",
+    spec: "number R",
+    description: "current health",
+  },
+  {
+    name: "$fcc",
+    spec: "number R",
+    description: "friendly critter count (number of your critters on the map)",
   },
 ]
 export type Arg = { register: string } | { literal: Value }
