@@ -140,7 +140,10 @@ class Tutorial extends Level {
   static Name = "tutorial"
   static Map = "tutorial"
   static AchievementUniqueOps = 7
-  static Achievement = `isa-explorer (used at least ${this.AchievementUniqueOps} unique opcodes)`
+  static Achievement = {
+    name: "isa-explorer",
+    description: `used at least ${this.AchievementUniqueOps} unique opcodes`,
+  }
   private uniqueOps = new Set<Crasm.Opcode>()
 
   init() {
@@ -248,7 +251,10 @@ class BreakingGround extends Level {
   static Name = "breaking-ground"
   static Map = "basic"
   private static AchivementMaxOps = 4
-  static Achievement = `code-golf (longest program <= ${this.AchivementMaxOps} ops)`
+  static Achievement = {
+    name: "code-golf",
+    description: `longest program <= ${this.AchivementMaxOps} ops`,
+  }
   private longestProgram: number = 0
 
   init() {
@@ -286,7 +292,10 @@ class AdvancedTutorial extends Level {
   static Name = "advanced-crasm"
   static Map = "advtutorial"
   static AchievementUniqueOps = 12
-  static Achievement = `isa-expert (used at least ${this.AchievementUniqueOps} unique opcodes)`
+  static Achievement = {
+    name: "isa-expert",
+    description: `used at least ${this.AchievementUniqueOps} unique opcodes`,
+  }
   private uniqueOps = new Set<Crasm.Opcode>()
 
   init() {
@@ -377,7 +386,10 @@ class Rush extends Level {
   static Name = "rush"
   static Map = "rush"
   static AchievementTime = 90
-  static Achievement = `sudden-death (win in under ${this.AchievementTime} seconds)`
+  static Achievement = {
+    name: "sudden-death",
+    description: `win in under ${this.AchievementTime} seconds`,
+  }
 
   init() {
     setAI(this.sim, AI.StaticThenAttack, AI.Defensive)
@@ -412,7 +424,10 @@ class Survival extends Level {
   static Name = "survival"
   static Map = "survival"
   static SurvivalTime = 120
-  static Achievement = `untouchable (your base didn't take damage)`
+  static Achievement = {
+    name: "untouchable",
+    description: "your base didn't take damage",
+  }
   private untouched = true
 
   init() {
@@ -459,7 +474,10 @@ class Survival extends Level {
 class Madness extends Level {
   static Name = "madness"
   static Map = "madness"
-  static Achievement = "fire-and-forget (use a single program and no markers)"
+  static Achievement = {
+    name: "fire-and-forget",
+    description: "use a single program and no markers",
+  }
   private fireAndForget = true
   private lastProgram: string = ""
 

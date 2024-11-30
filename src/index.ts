@@ -112,6 +112,16 @@ class Game {
     this.page.updateGameTime(this.sim.time)
     if (this.level.outcome !== null) {
       this.finish()
+      const levelCls = this.level.constructor as any
+      if (this.level.outcome === "victory") {
+        window.localStorage.setItem(`${levelCls.Name}`, "true")
+      }
+      if (this.level.achievement === "victory") {
+        window.localStorage.setItem(
+          `${levelCls.Name}-${levelCls.Achievement.name}`,
+          "true"
+        )
+      }
     }
   }
 

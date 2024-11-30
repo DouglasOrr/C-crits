@@ -16,12 +16,6 @@ export class Menu {
         },
       },
       {
-        name: "settings",
-        action: () => {
-          this.settings()
-        },
-      },
-      {
         name: "toggle-full-screen",
         action: () => {
           if (document.fullscreenElement) {
@@ -31,32 +25,102 @@ export class Menu {
           }
         },
       },
+      {
+        name: "settings",
+        action: () => {
+          this.settings()
+        },
+      },
+      {
+        name: "credits",
+        action: () => {
+          this.credits()
+        },
+      },
     ])
   }
 
   levels() {
-    this.page.showMenu("c-crits:levels", [
-      ...Levels.Levels.map((level, index) => ({
-        name: `${index}-${level.Name}`,
+    let moreLevels = true
+    let options = []
+    Levels.Levels.forEach((level, index) => {
+      if (moreLevels) {
+        const completed = Boolean(window.localStorage.getItem(level.Name))
+        const achieved = Boolean(
+          window.localStorage.getItem(`${level.Name}-${level.Achievement.name}`)
+        )
+        options.push({
+          name: `${index}-${level.Name}`,
+          pre: Page.createLevelStatus(completed, achieved),
+          action: () => {
+            this.onPlay(index)
+          },
+        })
+        if (!window.localStorage.getItem(level.Name)) {
+          moreLevels = false
+        }
+      }
+    })
+    if (moreLevels) {
+      options.push({
+        name: "COMPLETED",
         action: () => {
-          this.onPlay(index)
+          this.completed()
         },
-      })),
-      { name: "back", action: () => this.main() },
-    ])
+      })
+    }
+    options.push({ name: "back", action: () => this.main() })
+    this.page.showMenu("c-crits:levels", options)
   }
 
   gameOver(
     level: string,
     victory: boolean,
-    achievementName: string,
-    achievement: boolean
+    achievement: { name: string; description: string },
+    achieved: boolean
   ) {
-    this.page.showMenu(`c-crits:${level}`, [
-      { name: `outcome -- ${victory ? "VICTORY!" : "DEFEAT."}` },
-      { name: `+ ${achievementName} -- ${achievement ? "YES!" : "NO."}` },
-      { name: "back", action: () => this.levels() },
-    ])
+    const index = Levels.index(level)
+    const options = [
+      {
+        name: `retry--${level}`,
+        action: () => {
+          this.onPlay(index)
+        },
+      },
+    ]
+    if (index < Levels.Levels.length - 1) {
+      options.push({
+        name: `next--${Levels.Levels[index + 1].Name}`,
+        action: () => {
+          this.onPlay(index + 1)
+        },
+      })
+    } else {
+      options.push({ name: "next--COMPLETED", action: () => this.completed() })
+    }
+    options.push({ name: "back", action: () => this.levels() })
+    this.page.showMenu(
+      `c-crits:${level}`,
+      options,
+      /*context*/ {
+        name: "outcome.txt",
+        body: Page.createLevelReport(level, victory, achievement, achieved),
+      }
+    )
+  }
+
+  completed() {
+    this.page.showMenu(
+      "c-crits:complete",
+      [{ name: "back", action: () => this.levels() }],
+      /*context*/ {
+        name: "certificate.txt",
+        body: Page.createReport(
+          "Congratulations! You have completed all levels!",
+          "You can now consider yourself a crasm GM."
+        ),
+      }
+    )
   }
 
   settings() {
@@ -69,8 +133,40 @@ export class Menu {
           e.textContent = `sound-${enable ? "off" : "on"}`
         },
       },
+      {
+        name: "reset-all",
+        action: () => {
+          if (
+            confirm("Are you sure you want to reset all progress & settings?")
+          ) {
+            window.localStorage.clear()
+            window.location.reload()
+          }
+        },
+      },
       { name: "back", action: () => this.main() },
     ])
+  }
+
+  credits() {
+    this.page.showMenu(
+      "c-crits:credits",
+      [
+        {
+          name: "back",
+          action: () => this.main(),
+        },
+      ],
+      /*context*/ {
+        name: "credits.txt",
+        body: Page.createReport(
+          "          Sounds :: zapsplat.com",
+          "           Icons :: fontawesome.com",
+          "Rich code editor :: prism-code-editor",
+          "         Library :: three.js"
+        ),
+      }
+    )
   }
 
   hide() {

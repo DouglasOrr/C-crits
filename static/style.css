@@ -27,11 +27,22 @@ a {
 }
 #menu-options {
   padding: 0;
+  margin: 2em 0em 2em 0em;
 }
 #menu-options > li {
   list-style-type: none;
-  padding: 0em 2em 1em 2em;
+  padding: 0em 0em 2em 2em;
   cursor: pointer;
+}
+.menu-context {
+  padding: 1em 0em 4em 2em;
+}
+.menu-context > pre {
+  margin: 0;
+}
+.menu-option-preamble {
+  font-size: smaller;
+  color: #bbb;
 }
 #menu-cmd {
   background: none;

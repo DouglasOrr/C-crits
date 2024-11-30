@@ -20,7 +20,9 @@ import {
   faPause,
   faPlay,
   faUpload,
+  faStar,
 } from "@fortawesome/free-solid-svg-icons"
+import { faStar as faStarRegular } from "@fortawesome/free-regular-svg-icons"
 
 languages.crasm = {
   comment: /;.*/,
@@ -66,12 +68,8 @@ function formatValue(value: any): string {
 }
 
 export class Page {
-  // Menu
-  menu: HTMLElement
-  menuOptions: HTMLElement
-  menuCmd: HTMLInputElement
-  menuTitle: NodeListOf<HTMLElement>
   // Main
+  menu: HTMLElement
   sim: HTMLElement
   renderer: THREE.WebGLRenderer
   // Overlays
@@ -94,12 +92,8 @@ export class Page {
   private frameCount: number = 0
 
   constructor() {
-    // Menu
-    this.menu = document.getElementById("menu")!
-    this.menuOptions = document.getElementById("menu-options")!
-    this.menuCmd = document.getElementById("menu-cmd")! as HTMLInputElement
-    this.menuTitle = document.querySelectorAll(".menu-title")
     // Main
+    this.menu = document.getElementById("menu")!
     this.sim = document.getElementById("col-sim")!
     // Overlays
     this.gameTime = document.getElementById("overlay-time")!
@@ -119,7 +113,7 @@ export class Page {
     this.instructions = document.getElementById("instructions")!
 
     // JS Libraries
-    faLibrary.add(faPlay, faPause, faUpload, faClose)
+    faLibrary.add(faPlay, faPause, faUpload, faClose, faStar, faStarRegular)
     faDom.watch()
     this.editor = createEditor(
       "#editor-container",
@@ -218,25 +212,6 @@ export class Page {
     })
     this.inputSearch.addEventListener("input", (e) => {
       updateSearchResults()
-    })
-
-    // Turn typing commands into menu clicks
-    this.menuCmd.addEventListener("keydown", (e) => {
-      this.menuCmd.dataset.status = "ok"
-      if (e.key === "Enter") {
-        const matches = Array.from(
-          this.menuOptions.querySelectorAll("li")
-        ).filter((node) =>
-          node.textContent
-            ?.toLowerCase()
-            .startsWith(this.menuCmd.value.toLowerCase())
-        )
-        if (matches.length === 1) {
-          matches[0].click()
-        } else {
-          this.menuCmd.dataset.status = "error"
-        }
-      }
     })
 
     // Events
@@ -363,16 +338,33 @@ export class Page {
 
   showMenu(
     title: string,
-    options: { name: string; action?: (e: HTMLElement) => void }[]
+    options: {
+      name: string
+      pre?: HTMLElement
+      action?: (e: HTMLElement) => void
+    }[],
+    context?: { name: string; body: Node }
   ): void {
     this.menu.style.display = "block"
-    this.menuTitle.forEach((node) => {
-      node.textContent = title
-    })
-    this.menuOptions.replaceChildren(
+    this.menu.replaceChildren()
+
+    if (context !== undefined) {
+      this.menu.append(`[${title}]$ cat ${context.name}`, context.body)
+      options = options.slice()
+      options.unshift({ name: context.name, action: () => {} })
+    }
+
+    const eOptions = document.createElement("ul")
+    eOptions.id = "menu-options"
+    eOptions.append(
       ...options.map((option) => {
         const li = document.createElement("li")
-        li.textContent = option.name
+        li.dataset.name = option.name
+        if (option.pre !== undefined) {
+          li.append(option.pre)
+          li.append(" ")
+        }
+        li.appendChild(document.createTextNode(option.name))
         if (option.action !== undefined) {
           li.addEventListener("click", async () => {
             option.action!(li)
@@ -381,8 +373,34 @@ export class Page {
         return li
       })
     )
-    this.menuCmd.value = ""
-    this.menuCmd.focus()
+    this.menu.append(`[${title}]$ ls`, eOptions)
+
+    const command = document.createElement("div")
+    const input = document.createElement("input")
+    input.id = "menu-cmd"
+    input.type = "text"
+    input.spellcheck = false
+    input.placeholder = "<cmd>"
+    command.replaceChildren(`[${title}]$ ./`, input)
+    input.addEventListener("keydown", (e) => {
+      input.dataset.status = "ok"
+      if (e.key === "Enter") {
+        const matches = Array.from(eOptions.querySelectorAll("li")).filter(
+          (node) =>
+            node.dataset.name
+              ?.toLowerCase()
+              .startsWith(input.value.toLowerCase())
+        )
+        if (matches.length === 1) {
+          matches[0].click()
+          input.value = ""
+        } else {
+          input.dataset.status = "error"
+        }
+      }
+    })
+    this.menu.append(command)
+    input.focus()
   }
 
   hideMenu(): void {
@@ -393,4 +411,61 @@ export class Page {
     this.renderer.render(scene, camera)
     this.frameCount += 1
   }
+}
+
+export function createLevelStatus(
+  completed: boolean,
+  achieved: boolean
+): HTMLElement {
+  const e = document.createElement("span")
+  e.classList.add("menu-option-preamble")
+  const i0 = document.createElement("i")
+  if (completed) {
+    i0.classList.add("fa-solid", "fa-star")
+  } else {
+    i0.classList.add("fa-regular", "fa-star")
+  }
+  const i1 = document.createElement("i")
+  if (achieved) {
+    i1.classList.add("fa-solid", "fa-star")
+  } else {
+    i1.classList.add("fa-regular", "fa-star")
+  }
+  e.replaceChildren("[", i0, " ", i1, "]")
+  return e
+}
+
+export function createReport(...text: string[]): HTMLElement {
+  const report = document.createElement("div")
+  report.classList.add("menu-context")
+  const pre = document.createElement("pre")
+  pre.textContent = text.join("\n\n")
+  report.append(pre)
+  return report
+}
+
+export function createLevelReport(
+  level: string,
+  completed: boolean,
+  achievement: { name: string; description: string },
+  achieved: boolean
+): HTMLElement {
+  const report = document.createElement("div")
+  report.classList.add("menu-context")
+  const pre = document.createElement("pre")
+  pre.textContent =
+    "#\n#\n" +
+    [
+      `# Outcome: ${completed ? "VICTORY!" : "Defeat."}`,
+      `#   Bonus: ${achieved ? "YES!" : "NO."}        ; ${achievement.name} (${
+        achievement.description
+      })`,
+    ].join("\n#\n") +
+    "\n#"
+  report.replaceChildren(
+    `### Battle report :: ${level} `,
+    createLevelStatus(completed, achieved),
+    pre
+  )
+  return report
 }
