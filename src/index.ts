@@ -1,6 +1,7 @@
 import * as THREE from "three"
 import { Vec2 } from "./common"
 import * as Levels from "./game/levels"
+import * as Menu from "./ui/menu"
 import * as Maps from "./game/maps"
 import * as Sim from "./game/sim"
 import * as Loop from "./ui/loop"
@@ -63,82 +64,6 @@ function updateCamera(
   camera.updateProjectionMatrix()
 }
 
-class Menu {
-  onPlay: (level: string) => void = () => {}
-
-  constructor(private page: Page.Page) {}
-
-  main() {
-    this.page.showMenu("c-crits:~", [
-      {
-        name: "play",
-        action: () => {
-          this.levels()
-        },
-      },
-      {
-        name: "settings",
-        action: () => {
-          this.settings()
-        },
-      },
-      {
-        name: "toggle-full-screen",
-        action: () => {
-          if (document.fullscreenElement) {
-            document.exitFullscreen()
-          } else {
-            document.documentElement.requestFullscreen()
-          }
-        },
-      },
-    ])
-  }
-
-  levels() {
-    this.page.showMenu("c-crits:levels", [
-      ...Levels.Levels.map((level, index) => ({
-        name: `${index}-${level.Name}`,
-        action: () => {
-          this.onPlay(level.Name)
-        },
-      })),
-      { name: "back", action: () => this.main() },
-    ])
-  }
-
-  gameOver(
-    level: string,
-    victory: boolean,
-    achievementName: string,
-    achievement: boolean
-  ) {
-    this.page.showMenu(`c-crits:${level}`, [
-      { name: `outcome -- ${victory ? "VICTORY!" : "DEFEAT."}` },
-      { name: `+ ${achievementName} -- ${achievement ? "YES!" : "NO."}` },
-      { name: "back", action: () => this.levels() },
-    ])
-  }
-
-  settings() {
-    this.page.showMenu("c-crits:settings", [
-      {
-        name: `sound-${Sound.enabled() ? "off" : "on"}`,
-        action: (e: HTMLElement) => {
-          const enable = e.textContent === "sound-on"
-          Sound.setEnabled(enable)
-          e.textContent = `sound-${enable ? "off" : "on"}`
-        },
-      },
-      { name: "back", action: () => this.main() },
-    ])
-  }
-
-  hide() {
-    this.page.hideMenu()
-  }
-}
-
 class Game {
   private views: Views.View[]
   private loop: Loop.Loop
@@ -147,7 +72,7 @@ class Game {
 
   constructor(
     private page: Page.Page,
-    private menu: Menu,
+    private menu: Menu.Menu,
     private sim: Sim.Sim,
     private level: Levels.Level,
     textures: Textures
@@ -236,12 +161,12 @@ class Game {
 async function loadLevel(
   page: Page.Page,
   playSound: (event: Sim.Event) => void,
-  menu: Menu,
+  menu: Menu.Menu,
   textures: Textures,
-  name: string
+  levelIndex: number
 ): Promise<Game> {
   menu.hide()
-  const LevelType = Levels.get(name)
+  const LevelType = Levels.Levels[levelIndex]
   const sim = new Sim.Sim(
     await Maps.load((LevelType as any).Map),
     Sim.listeners(playSound, page.updateDebug.bind(page))
@@ -257,7 +182,7 @@ async function load() {
   const textures = await loadTextures()
   page.editor.textarea.value = window.localStorage.getItem("program") ?? ""
   page.editor.update()
-  const menu = new Menu(page)
+  const menu = new Menu.Menu(page)
   menu.onPlay = (level) => {
     loadLevel(page, playSound, menu, textures, level)
   }
@@ -267,7 +192,7 @@ async function load() {
   }
   const level = params.get("level")
   if (level !== null) {
-    loadLevel(page, playSound, menu, textures, level)
+    loadLevel(page, playSound, menu, textures, Levels.index(level))
   } else {
     menu.main()
   }

@@ -515,6 +515,6 @@ export const Levels = [
   Madness,
 ]
 
-export function get(name: string): typeof Level {
-  return Levels.find((level) => level.Name === name)!
+export function index(name: string): number {
+  return Levels.findIndex((level) => level.Name === name)!
 }
