@@ -26,6 +26,10 @@ a {
   padding: 4em;
   font-size: large;
 }
+.menu-title {
+  color: #888;
+  font-weight: bold;
+}
 #menu-options {
   padding: 0;
   margin: 2em 0em 2em 0em;

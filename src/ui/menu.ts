@@ -121,10 +121,14 @@ export class Menu {
       "c-crits:complete",
       [{ name: "back", action: () => this.levels() }],
       /*context*/ {
-        name: "certificate.txt",
+        name: "message.txt",
         body: Page.createReport(
+          "Dear <player>,",
           "Congratulations! You have completed all levels!",
-          "You can now consider yourself a crasm GM."
+          "You can now consider yourself a crasm GM & certifiable friend-of-crits.",
+          "I hope you enjoyed it. Sorry there was no C compiler.",
+          "Best,",
+          "Doug"
         ),
       }
     )
@@ -170,7 +174,10 @@ export class Menu {
           "          Sounds :: zapsplat.com",
           "           Icons :: fontawesome.com",
           "     Code editor :: prism-code-editor",
-          "         Library :: three.js"
+          "         Library :: three.js",
+          "",
+          " -- C-Crits is a game jam game by @DouglasOrr for GitHub Game Off 2024 --",
+          "https://github.com/DouglasOrr/C-crits"
         ),
       }
     )

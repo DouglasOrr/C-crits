@@ -344,7 +344,11 @@ export class Page {
     this.menu.replaceChildren()
 
     if (context !== undefined) {
-      this.menu.append(`[${title}]$ cat ${context.name}`, context.body)
+      this.menu.append(
+        createMenuTitleSpan(title),
+        `cat ${context.name}`,
+        context.body
+      )
       options = options.slice()
       options.unshift({ name: context.name, action: () => {} })
     }
@@ -368,7 +372,7 @@ export class Page {
         return li
       })
     )
-    this.menu.append(`[${title}]$ ls`, eOptions)
+    this.menu.append(createMenuTitleSpan(title), "ls", eOptions)
 
     const command = document.createElement("div")
     const input = document.createElement("input")
@@ -376,7 +380,7 @@ export class Page {
     input.type = "text"
     input.spellcheck = false
     input.placeholder = "<cmd>"
-    command.replaceChildren(`[${title}]$ ./`, input)
+    command.replaceChildren(createMenuTitleSpan(title), "./", input)
     input.addEventListener("keydown", (e) => {
       input.dataset.status = "ok"
       if (e.key === "Enter") {
@@ -406,6 +410,13 @@ export class Page {
     this.renderer.render(scene, camera)
     this.frameCount += 1
   }
+}
+
+function createMenuTitleSpan(title: string): HTMLElement {
+  const e = document.createElement("span")
+  e.classList.add("menu-title")
+  e.textContent = `[${title}]$ `
+  return e
 }
 
 export function createLevelStatus(
