@@ -164,6 +164,14 @@ a {
 #debug td {
   padding: 0 5px;
 }
+.debug-table {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(10em, 1fr));
+}
+.debug-cell {
+  display: inline-block;
+  margin-bottom: 0.25em;
+}
 [data-status="ok"] {
   background-color: #040;
 }

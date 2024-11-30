@@ -283,25 +283,15 @@ export class Page {
         } else {
           this.debug.dataset.status = "none"
         }
-        const table = document.createElement("table")
+        const table = document.createElement("div")
+        table.classList.add("debug-table")
         const keys = Object.keys(data.mem)
-        const nCols = 3
-        const nRows = Math.ceil(keys.length / nCols)
-        for (let i = 0; i < nRows; ++i) {
-          const row = table.insertRow()
-          for (let j = 0; j < nCols; ++j) {
-            if (i + nRows * j < keys.length) {
-              const key = keys[i + nRows * j]
-              const value =
-                key === "$passwd" ? "<?>" : formatValue(data.mem[key])
-              row.insertCell().textContent = key
-              const v = row.insertCell()
-              v.textContent = value
-              if (j < nCols - 1) {
-                v.style.borderRight = "1px solid #666"
-              }
-            }
-          }
+        for (const key of keys) {
+          const value = key === "$passwd" ? "<?>" : formatValue(data.mem[key])
+          const cell = document.createElement("div")
+          cell.classList.add("debug-cell")
+          cell.textContent = `${key}: ${value}`
+          table.append(cell)
         }
         this.debug.replaceChildren(error, table)
       }
