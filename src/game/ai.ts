@@ -193,3 +193,89 @@ jmp @attack
 @done
   ret
 `
+
+export const FinaleAggressive = `
+; First 5 critters defend $hb
+sub $id 5 $z
+jlz $z @defender
+
+; For 15s every 60s, everyone defends $hb
+mod $time 60 $z
+sub $z 45 $z
+jgz $z @defender
+
+;; Choose a $dst
+; No enemies - attack $eb
+jez $ne @dst-eb
+; If there's a critter near to our base, defend
+sub $ne $hb $z
+vlen $z $z
+sub $z 6 $z
+jlz $z @dst-defend
+; If we're weak, defend
+sub $fcc 10 $z
+jlz $z @dst-defend
+; Go to $nnb if near to $hb
+jez $nnb @dst-eb
+sub $nnb $hb $z
+vlen $z $z
+sub $z 20 $z
+jlz $z @dst-nnb
+; Attack $eb
+jmp @dst-eb
+
+;; Choose a $tgt
+@tgt-find
+; With some probability, don't attack
+mov null $tgt
+rand $z
+sub $z 0.1 $z
+jlz $z @done
+; If we're heading home, attack $ne
+jez $dst @t2
+sub $dst $hb $z
+jnz $z @t2
+mov $ne $tgt
+ret
+; Attack $ne if close otherwise $eb
+@t2
+mov $eb $tgt
+jez $ne @done
+sub $ne $pos $z
+vlen $z $z
+sub $z 3 $z
+jgz $z @done
+mov $ne $tgt
+ret
+
+;; Subroutines
+
+@dst-defend
+  send 1 $hb $dst
+  jmp @tgt-find
+
+@dst-nnb
+  send 0 $nnb $dst
+  jmp @tgt-find
+
+@dst-eb
+  send 0 $eb $dst
+  jmp @tgt-find
+
+@done
+  ret
+
+@defender
+  sub $ne $hb $d
+  vlen $d $d
+  sub $d 8 $d
+  jlz $d @defender-defend
+
+  mov $hb $dst
+  mov null $tgt
+  ret
+
+  @defender-defend
+  mov $ne $dst
+  mov $ne $tgt
+`

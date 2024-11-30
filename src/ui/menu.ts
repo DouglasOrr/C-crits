@@ -77,7 +77,8 @@ export class Menu {
     level: string,
     victory: boolean,
     achievement: { name: string; description: string },
-    achieved: boolean
+    achieved: boolean,
+    losses: [number, number, number]
   ) {
     const index = Levels.index(level)
     const options = [
@@ -104,7 +105,13 @@ export class Menu {
       options,
       /*context*/ {
         name: "outcome.txt",
-        body: Page.createLevelReport(level, victory, achievement, achieved),
+        body: Page.createLevelReport(
+          level,
+          victory,
+          achievement,
+          achieved,
+          losses
+        ),
       }
     )
   }

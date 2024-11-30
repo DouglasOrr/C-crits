@@ -159,11 +159,18 @@ class Game {
     this.page.events = () => {}
     this.views.forEach((view) => view.dispose())
     const levelCls = this.level.constructor as any
+    const losses = [
+      this.sim.players.losses[0],
+      this.sim.players.losses[1],
+      this.sim.players.losses.slice(2).reduce((a, b) => a + b),
+    ]
+
     this.menu.gameOver(
       levelCls.Name,
       this.level.outcome === "victory",
       levelCls.Achievement,
-      this.level.achievement === "victory"
+      this.level.achievement === "victory",
+      losses as [number, number, number]
     )
   }
 }
@@ -199,6 +206,7 @@ async function load() {
   const params = new URLSearchParams(window.location.search)
   if (params.has("debug")) {
     Sim.enableDebugMode()
+    page.enableFpsCounter()
   }
   const level = params.get("level")
   if (level !== null) {

@@ -387,6 +387,8 @@ export class Bases {
 
 export class Players {
   nextId: number[]
+  losses: number[]
+  // Programs
   program: Crasm.Program[]
   commsIn: { [key: string]: Crasm.Value }[]
   commsOut: { [key: string]: { priority: number; values: Crasm.Value[] } }[]
@@ -399,6 +401,7 @@ export class Players {
 
   constructor(n: number, private listener: EventListener) {
     this.nextId = Array(n).fill(0)
+    this.losses = Array(n).fill(0)
     this.errorsSinceLastLoad = Array(n).fill(0)
     this.program = Array(n).fill(Crasm.emptyProgram())
     this.commsIn = Array.from({ length: n }, () => {
@@ -785,7 +788,7 @@ export class Crits {
     return null
   }
 
-  explode(p: Vec2, map: Maps.Map): void {
+  explode(p: Vec2, map: Maps.Map, players: Players): void {
     this.forEachIndex((i) => {
       if (
         this.health[i] > 0 &&
@@ -800,6 +803,7 @@ export class Crits {
         this.health[i] = Math.max(this.health[i] - damage, 0)
         if (this.health[i] === 0) {
           this.listener(Event.CritDeath)
+          players.losses[this.player[i]]++
         }
       }
     })
@@ -1055,7 +1059,7 @@ export class Sim {
     this.time += S.dt
     this.bullets.update((p: Vec2) => {
       this.bases.explode(p)
-      this.crits.explode(p, this.map)
+      this.crits.explode(p, this.map, this.players)
     })
     this.healBullets.update((p: Vec2) => this.crits.heal(p))
     this.crits.update(this.bullets, this.pathfinder)

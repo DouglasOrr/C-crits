@@ -98,6 +98,9 @@ a {
   top: 0.5em;
   left: 0.5em;
 }
+#overlay-fps {
+  display: none;
+}
 /* Dev panel */
 #col-dev > * {
   padding: 0.75em;

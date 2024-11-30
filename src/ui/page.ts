@@ -246,6 +246,10 @@ export class Page {
     })
   }
 
+  enableFpsCounter(): void {
+    this.fpsCounter.style.display = "inherit"
+  }
+
   updateGameTime(time: number): void {
     if (this.gameTime) {
       const minutes = Math.floor(time / 60)
@@ -439,20 +443,24 @@ export function createLevelReport(
   level: string,
   completed: boolean,
   achievement: { name: string; description: string },
-  achieved: boolean
+  achieved: boolean,
+  lossses: [number, number, number]
 ): HTMLElement {
   const report = document.createElement("div")
   report.classList.add("menu-context")
   const pre = document.createElement("pre")
-  pre.textContent =
-    "#\n#\n" +
-    [
-      `# Outcome: ${completed ? "VICTORY!" : "Defeat."}`,
-      `#   Bonus: ${achieved ? "YES!" : "NO."}        ; ${achievement.name} (${
-        achievement.description
-      })`,
-    ].join("\n#\n") +
-    "\n#"
+
+  const outcome = `# Outcome: ${completed ? "VICTORY!" : "Defeat."}`
+  const targetLen = 25
+  const bonus =
+    `#   Bonus: ${achieved ? "YES!" : "NO. "}`.padEnd(targetLen) +
+    ` ; ${achievement.name} (${achievement.description})`
+  const losses =
+    `#  Losses: ${lossses[0]} / ${lossses[1]} / ${lossses[2]}`.padEnd(
+      targetLen
+    ) + " ; friendly / enemy / neutral"
+
+  pre.textContent = "#\n#\n" + [outcome, bonus, losses].join("\n#\n") + "\n#"
   report.replaceChildren(
     `### Battle report :: ${level} `,
     createLevelStatus(completed, achieved),

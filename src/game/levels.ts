@@ -522,6 +522,40 @@ class Madness extends Level {
   }
 }
 
+class Finale extends Level {
+  static Name = "finale"
+  static Map = "finale"
+  static Achievement = {
+    name: "guardian-of-crasm",
+    description: "don't lose a critter; do cheat!",
+  }
+
+  init() {
+    setAI(this.sim, AI.FinaleAggressive, AI.Defensive)
+    setSpawn(this.sim, [
+      { n: 20, max: 50 },
+      { n: 30, max: 50 },
+      { n: 0, max: 25 },
+      { n: 0, max: 25 },
+      { n: 0, max: 25 },
+    ])
+  }
+  update() {
+    this.outcome = domination(this.sim)
+    if (this.outcome === "victory") {
+      this.achievement = this.sim.players.losses[0] === 0 ? "victory" : "defeat"
+    }
+    const print = this.page.addInstruction.bind(this.page)
+    const t_ = this.transition.bind(this)
+
+    if (t_("init", "welcome", /*delay*/ 1)) {
+      print(
+        "This is it! The final showdown. <b>Destroy the enemy base</b> to win."
+      )
+    }
+  }
+}
+
 // Level index
 
 export const Levels = [
@@ -531,6 +565,7 @@ export const Levels = [
   Rush,
   Survival,
   Madness,
+  Finale,
 ]
 
 export function index(name: string): number {
