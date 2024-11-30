@@ -15,6 +15,7 @@ export enum Opcode {
   MUL,
   DIV,
   MOD,
+  FLOOR,
   RAND,
   // Arrays
   PUSH,
@@ -55,31 +56,38 @@ export const OpSpecs = [
     code: Opcode.ADD,
     syntax: BinaryArithmetic,
     spec: "a b $out",
-    description: "add a to b (element-wise) and store in $out",
+    description: "add a to b (elementwise) and store in $out",
   },
   {
     code: Opcode.SUB,
     syntax: BinaryArithmetic,
     spec: "a b $out",
-    description: "subtract b from a (element-wise) and store in $out",
+    description: "subtract b from a (elementwise) and store in $out",
   },
   {
     code: Opcode.MUL,
     syntax: BinaryArithmetic,
     spec: "a b $out",
-    description: "multiply a with b (element-wise) and store in $out",
+    description: "multiply a with b (elementwise) and store in $out",
   },
   {
     code: Opcode.DIV,
     syntax: BinaryArithmetic,
     spec: "a b $out",
-    description: "divide a by b (element-wise) and store in $out",
+    description: "divide a by b (elementwise) and store in $out",
   },
   {
     code: Opcode.MOD,
     syntax: BinaryArithmetic,
     spec: "a b $out",
-    description: "take the modulo of a by b (element-wise) and store in $out",
+    description: "take the modulo of a by b (elementwise) and store in $out",
+  },
+  {
+    code: Opcode.FLOOR,
+    syntax: UnaryArithmetic,
+    spec: "value $out",
+    description:
+      "round value (elementwise) down to the nearest integer and store in $out",
   },
   {
     code: Opcode.RAND,
@@ -305,6 +313,9 @@ export function run(
         break
       case Opcode.MOD:
         runBinary(s, exprMod)
+        break
+      case Opcode.FLOOR:
+        runUnary(s, exprFloor)
         break
       case Opcode.RAND:
         store(s, Math.random(), s.op.args[0])
@@ -537,6 +548,16 @@ function exprMod(s: State, a: Value, b: Value): Value {
     return a.map((_, i) => (a[i] as number) % (b[i] as number))
   }
   throw new RuntimeError(`can't MOD ${a} ${b}`, s.op.line)
+}
+
+function exprFloor(s: State, value: Value): Value {
+  if (typeof value === "number") {
+    return Math.floor(value)
+  }
+  if (Array.isArray(value) && typeof value[0] === "number") {
+    return value.map((x) => Math.floor(x))
+  }
+  throw new RuntimeError(`can't FLOOR ${value}`, s.op.line)
 }
 
 // Array
