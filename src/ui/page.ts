@@ -285,18 +285,19 @@ export class Page {
         }
         const table = document.createElement("table")
         const keys = Object.keys(data.mem)
-        const nRows = Math.ceil(keys.length / 2)
+        const nCols = 3
+        const nRows = Math.ceil(keys.length / nCols)
         for (let i = 0; i < nRows; ++i) {
           const row = table.insertRow()
-          for (const j of [0, nRows]) {
-            if (i + j < keys.length) {
-              const key = keys[i + j]
+          for (let j = 0; j < nCols; ++j) {
+            if (i + nRows * j < keys.length) {
+              const key = keys[i + nRows * j]
               const value =
                 key === "$passwd" ? "<?>" : formatValue(data.mem[key])
               row.insertCell().textContent = key
               const v = row.insertCell()
               v.textContent = value
-              if (j === 0) {
+              if (j < nCols - 1) {
                 v.style.borderRight = "1px solid #666"
               }
             }

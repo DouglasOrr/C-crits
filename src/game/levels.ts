@@ -476,7 +476,7 @@ class Madness extends Level {
   static Map = "madness"
   static Achievement = {
     name: "fire-and-forget",
-    description: "use a single program and no markers",
+    description: "upload once, no markers",
   }
   private fireAndForget = true
   private lastProgram: string = ""

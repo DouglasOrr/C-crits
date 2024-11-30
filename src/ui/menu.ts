@@ -162,7 +162,7 @@ export class Menu {
         body: Page.createReport(
           "          Sounds :: zapsplat.com",
           "           Icons :: fontawesome.com",
-          "Rich code editor :: prism-code-editor",
+          "     Code editor :: prism-code-editor",
           "         Library :: three.js"
         ),
       }

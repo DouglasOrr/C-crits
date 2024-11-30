@@ -23,7 +23,8 @@ a {
   bottom: 0px;
   background: #222;
   z-index: 200;
-  padding: 2em;
+  padding: 4em;
+  font-size: large;
 }
 #menu-options {
   padding: 0;
@@ -41,7 +42,7 @@ a {
   margin: 0;
 }
 .menu-option-preamble {
-  font-size: smaller;
+  font-size: normal;
   color: #bbb;
 }
 #menu-cmd {
@@ -139,14 +140,12 @@ a {
   padding: 0.5em;
   margin-top: 0.5em;
   border-bottom: 1px solid #666;
-  font-size: small;
 }
 #search-results p {
   margin-top: 1em;
   margin-bottom: 0.5em;
 }
 #editor-container {
-  font-size: small;
   display: grid;
   padding: 0;
   overflow: hidden;
@@ -156,11 +155,9 @@ a {
 }
 #output {
   white-space: pre-wrap;
-  font-size: small;
 }
 #debug {
   white-space: pre-wrap;
-  font-size: small;
   max-height: 30vh;
   overflow-y: auto;
 }
@@ -183,7 +180,6 @@ a {
   padding: 0;
   margin: 0;
   max-height: 100%;
-  font-size: smaller;
   cursor: default;
 }
 #instructions > li {
