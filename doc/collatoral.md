@@ -6,16 +6,17 @@ Banner - max 960 x 300 (better shorter).
 
 ---
 
-C-crits puts you in charge of an army of miniature robot critters. Lacking the intended C compiler you can program them in the assembly-like language crasm.
+C-crits puts you in charge of an army of miniature robot critters. Lacking the eponymous C compiler, you can program them in the assembly-like language crasm.
 
 Play this game, learn a new & completely useless programming language, get frustrated at its creator (you're welcome), and conclude that even javascript isn't all that bad.
 
 Glossary:
 
-- CRASM - CRitters ASseMbly language, your tool of choicenecessity
+- CRASM - CRitters ASseMbly language, your tool of choice necessity
+- CREPL - Curse-Retry-Edit-Pray-Lose, the core gameplay loop
 - CRAP - CRitters Advanced Pathfinding, for going A ~> B
-- CREPL - Curse, Retry, Edit, Pray, Lose, the core gameplay loop
 - Compiler - synonym of player
+- AI - antonym of critter
 - SECRETS - no
 
 ---
