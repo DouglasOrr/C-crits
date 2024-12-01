@@ -432,7 +432,7 @@ export class Players {
       if (error instanceof Crasm.ParseError) {
         this.listener(Event.ProgramError, error)
       } else {
-        throw error
+        this.listener(Event.ProgramError, { unknownError: error })
       }
     }
   }
@@ -658,7 +658,7 @@ export class Crits {
         if (e instanceof Crasm.RuntimeError) {
           this.setError(i, e.message, e.line)
         } else {
-          throw e
+          this.setError(i, `unknown: '${e}'`)
         }
       }
     })

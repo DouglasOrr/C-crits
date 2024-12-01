@@ -15,7 +15,7 @@ export enum Opcode {
   MUL,
   DIV,
   MOD,
-  FLOOR,
+  FLOR,
   RAND,
   // Arrays
   PUSH,
@@ -83,7 +83,7 @@ export const OpSpecs = [
     description: "take the modulo of a by b (elementwise) and store in $out",
   },
   {
-    code: Opcode.FLOOR,
+    code: Opcode.FLOR,
     syntax: UnaryArithmetic,
     spec: "value $out",
     description:
@@ -294,77 +294,88 @@ export function run(
       break
     }
     s.op = program.ops[s.pc]
-    switch (s.op.opcode) {
-      // Arithmetic
-      case Opcode.MOV:
-        runUnary(s, (_, a) => a)
-        break
-      case Opcode.ADD:
-        runBinary(s, exprAdd)
-        break
-      case Opcode.SUB:
-        runBinary(s, exprSub)
-        break
-      case Opcode.MUL:
-        runBinary(s, exprMul)
-        break
-      case Opcode.DIV:
-        runBinary(s, exprDiv)
-        break
-      case Opcode.MOD:
-        runBinary(s, exprMod)
-        break
-      case Opcode.FLOOR:
-        runUnary(s, exprFloor)
-        break
-      case Opcode.RAND:
-        store(s, Math.random(), s.op.args[0])
-        s.pc += 1
-        break
-      // Arrays
-      case Opcode.PUSH:
-        runBinary(s, exprPush)
-        break
-      case Opcode.GET:
-        runBinary(s, exprGet)
-        break
-      case Opcode.VLEN:
-        runUnary(s, exprVLen)
-        break
-      case Opcode.VDIR:
-        runUnary(s, exprVDir)
-        break
-      case Opcode.UNITV:
-        runUnary(s, exprUnitV)
-        break
-      // Control flow
-      case Opcode.JMP:
-        s.pc = jumpTarget(s, s.op.args[0])
-        break
-      case Opcode.JEZ:
-        runConditionalJump(s, exprEZ)
-        break
-      case Opcode.JNZ:
-        runConditionalJump(s, exprNZ)
-        break
-      case Opcode.JLZ:
-        runConditionalJump(s, exprLZ)
-        break
-      case Opcode.JGZ:
-        runConditionalJump(s, exprGZ)
-        break
-      case Opcode.RET:
-        s.pc = program.ops.length
-        break
-      // Other
-      case Opcode.SEND:
-        runSend(s)
-        break
-      case Opcode.MAPL:
-        runMapl(s)
-        break
-      default:
-        throw new AssertionError()
+    try {
+      switch (s.op.opcode) {
+        // Arithmetic
+        case Opcode.MOV:
+          runUnary(s, (_, a) => a)
+          break
+        case Opcode.ADD:
+          runBinary(s, exprAdd)
+          break
+        case Opcode.SUB:
+          runBinary(s, exprSub)
+          break
+        case Opcode.MUL:
+          runBinary(s, exprMul)
+          break
+        case Opcode.DIV:
+          runBinary(s, exprDiv)
+          break
+        case Opcode.MOD:
+          runBinary(s, exprMod)
+          break
+        case Opcode.FLOR:
+          runUnary(s, exprFlor)
+          break
+        case Opcode.RAND:
+          store(s, Math.random(), s.op.args[0])
+          s.pc += 1
+          break
+        // Arrays
+        case Opcode.PUSH:
+          runBinary(s, exprPush)
+          break
+        case Opcode.GET:
+          runBinary(s, exprGet)
+          break
+        case Opcode.VLEN:
+          runUnary(s, exprVLen)
+          break
+        case Opcode.VDIR:
+          runUnary(s, exprVDir)
+          break
+        case Opcode.UNITV:
+          runUnary(s, exprUnitV)
+          break
+        // Control flow
+        case Opcode.JMP:
+          s.pc = jumpTarget(s, s.op.args[0])
+          break
+        case Opcode.JEZ:
+          runConditionalJump(s, exprEZ)
+          break
+        case Opcode.JNZ:
+          runConditionalJump(s, exprNZ)
+          break
+        case Opcode.JLZ:
+          runConditionalJump(s, exprLZ)
+          break
+        case Opcode.JGZ:
+          runConditionalJump(s, exprGZ)
+          break
+        case Opcode.RET:
+          s.pc = program.ops.length
+          break
+        // Other
+        case Opcode.SEND:
+          runSend(s)
+          break
+        case Opcode.MAPL:
+          runMapl(s)
+          break
+        default:
+          throw new AssertionError()
+      }
+    } catch (e) {
+      if (e instanceof RuntimeError) {
+        throw e
+      } else {
+        throw new RuntimeError(
+          `${Opcode[s.op.opcode]} unexpected error '${e}'`,
+          s.op.line
+        )
+      }
     }
   }
   return { comms: s.comms, cycles: s.cycleCount, timeout: s.timeout }
@@ -550,7 +561,7 @@ function exprMod(s: State, a: Value, b: Value): Value {
   throw new RuntimeError(`can't MOD ${a} ${b}`, s.op.line)
 }
 
-function exprFloor(s: State, value: Value): Value {
+function exprFlor(s: State, value: Value): Value {
   if (typeof value === "number") {
     return Math.floor(value)
   }

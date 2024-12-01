@@ -265,7 +265,11 @@ export class Page {
   updateDebug(event: Sim.Event, data?: any): void {
     if (event === Sim.Event.ProgramError) {
       console.error(data)
-      this.output.textContent = data.show()
+      if (data.unknownError !== undefined) {
+        this.output.textContent = `Unknown error '${data.unknownError}'`
+      } else {
+        this.output.textContent = data.show()
+      }
       this.output.dataset.status = "error"
     }
     if (event === Sim.Event.ProgramLoad) {
