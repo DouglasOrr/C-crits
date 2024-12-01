@@ -1,6 +1,8 @@
 # C-crits
 
-A game jam game for GitHub Game Off 2024.
+[![Itch.io](https://img.shields.io/badge/itch.io-%23FF0B34.svg?logo=Itch.io&logoColor=white)](https://douglasorr.itch.io/c-crits)
+
+A game jam game for GitHub Game Off 2024. Play on [itch.io](https://douglasorr.itch.io/c-crits).
 
 ![Example of C-crits gameplay](./doc/img/thumb.gif)
 
