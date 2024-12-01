@@ -114,7 +114,7 @@ class Game {
       this.finish()
       const levelCls = this.level.constructor as any
       if (this.level.outcome === "victory") {
-        window.localStorage.setItem(`${levelCls.Name}`, "true")
+        window.localStorage.setItem(levelCls.Name, "true")
       }
       if (this.level.achievement === "victory") {
         window.localStorage.setItem(

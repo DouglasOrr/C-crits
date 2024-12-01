@@ -155,6 +155,15 @@ export class Menu {
           }
         },
       },
+      // {
+      //   name: "unlock-all",
+      //   action: () => {
+      //     Levels.Levels.forEach((level) => {
+      //       window.localStorage.setItem(level.Name, "true")
+      //     })
+      //     window.location.reload()
+      //   },
+      // },
       { name: "back", action: () => this.main() },
     ])
   }
