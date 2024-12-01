@@ -2,6 +2,8 @@
 
 A game jam game for GitHub Game Off 2024.
 
+![Example of C-crits gameplay](./doc/img/thumb.gif)
+
 ## Development
 
 ```sh
@@ -14,4 +16,8 @@ npm run build
 
 ## Attribution
 
-Sound effects obtained from [Zapsplat](https://www.zapsplat.com). See [attribution.md](./attribution.md) for details.
+Sound effects obtained from [Zapsplat](https://www.zapsplat.com), and icons from [FontAwesome](https://fontawesome.com/). See [attribution.md](./attribution.md) for details.
+
+## Authorship note
+
+I used GitHub copilot while writing this code. If my code has implicitly copied from your code, please let me know so I can give proper attribution or remove/rewrite if you prefer.
