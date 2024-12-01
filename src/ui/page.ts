@@ -1,7 +1,8 @@
-import * as Crasm from "../game/crasm"
-import * as Sim from "../game/sim"
 import * as THREE from "three"
 import { Vec2 } from "../common"
+import * as Crasm from "../game/crasm"
+import * as Levels from "../game/levels"
+import * as Sim from "../game/sim"
 
 import { createEditor, languageMap, PrismEditor } from "prism-code-editor"
 import { defaultCommands } from "prism-code-editor/commands"
@@ -15,14 +16,14 @@ import {
   dom as faDom,
   library as faLibrary,
 } from "@fortawesome/fontawesome-svg-core"
+import { faStar as faStarRegular } from "@fortawesome/free-regular-svg-icons"
 import {
   faClose,
   faPause,
   faPlay,
-  faUpload,
   faStar,
+  faUpload,
 } from "@fortawesome/free-solid-svg-icons"
-import { faStar as faStarRegular } from "@fortawesome/free-regular-svg-icons"
 
 languages.crasm = {
   comment: /;.*/,
@@ -152,6 +153,12 @@ export class Page {
       }
       if (event.ctrlKey && event.key.toLowerCase() === "q") {
         this.buttonQuit.click()
+      }
+      if (event.ctrlKey && event.altKey && event.key === "u") {
+        Levels.Levels.forEach((level) => {
+          window.localStorage.setItem(level.Name, "true")
+        })
+        window.location.reload()
       }
     })
     // Forcibly override the prism editor handler for Ctrl+Enter and (Shift)+Tab

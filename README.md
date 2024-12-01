@@ -18,7 +18,7 @@ Please think deeply before choosing a password to protect against teleportation.
 
 ## Attribution
 
-Sound effects obtained from [Zapsplat](https://www.zapsplat.com), and icons from [FontAwesome](https://fontawesome.com/). See [attribution.md](./attribution.md) for details.
+Sound effects and music obtained from [Zapsplat](https://www.zapsplat.com), and icons from [FontAwesome](https://fontawesome.com/). See [attribution.md](./attribution.md) for details.
 
 ## Authorship note
 

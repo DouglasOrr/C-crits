@@ -32,11 +32,11 @@ a {
 }
 #menu-options {
   padding: 0;
-  margin: 2em 0em 2em 0em;
+  margin: 1em 0em 2em 0em;
 }
 #menu-options > li {
   list-style-type: none;
-  padding: 0em 0em 2em 2em;
+  padding: 1em 0em 1em 2em;
   cursor: pointer;
 }
 .menu-context {

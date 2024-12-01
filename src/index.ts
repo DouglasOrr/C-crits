@@ -198,11 +198,12 @@ async function loadLevel(
 
 async function load() {
   const page = new Page.Page()
+  const music = new Sound.Music()
   const playSound = await Sound.load()
   const textures = await loadTextures()
   page.editor.textarea.value = window.localStorage.getItem("program") ?? ""
   page.editor.update()
-  const menu = new Menu.Menu(page)
+  const menu = new Menu.Menu(page, music)
   menu.onPlay = (level) => {
     loadLevel(page, playSound, menu, textures, level)
   }

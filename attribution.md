@@ -10,6 +10,13 @@ Sound effects obtained from [Zapsplat](https://www.zapsplat.com).
 - `program_load` Game sound, hit target, positive short blip or beep
 - `program_error` Science fiction, robotic computer tone, glitch
 
+Music from [Zapsplat](https://www.zapsplat.com).
+
+- Slow Rider – lightly tense electronica with a dark vibe
+- Aiming High – an electronic based energetic piece with 80s elements and warm arpeggios
+- Tech Rise – energetic, electronic techno music with robotic elements and driving bass leading into an uplifting synth melody
+- Well Oiled Machine – synthesizer arpeggio driven breakbeat trance with a slight retro feel, warm pads and other synth elements
+
 Maybe:
 
 - `crit_death_1` Short small explosion with no tail 3

@@ -2,9 +2,10 @@ import * as Sim from "../game/sim"
 
 const S = {
   debounceTime: 0.05, // s
+  musicVolume: 0.7,
   sounds: [
     [Sim.Event.Attack, "attack", { v: 0.4, dt: 300 }],
-    [Sim.Event.CritDeath, "crit_death", { v: 0.3, dt: 300 }],
+    [Sim.Event.CritDeath, "crit_death", { v: 0.2, dt: 300 }],
     [Sim.Event.CritSpawn, "crit_spawn", { v: 1.0 }],
     [Sim.Event.BaseCapture, "base_capture", { v: 1.0 }],
     [Sim.Event.BaseDeath, "base_death", { v: 1.0 }],
@@ -65,4 +66,50 @@ export function enabled(): boolean {
 
 export function setEnabled(enabled: boolean): void {
   window.localStorage.setItem("sound", enabled ? "on" : "off")
+}
+
+export class Music {
+  private tracks: HTMLAudioElement[]
+  private currentTrack: number = 0
+  private playing: boolean = false
+
+  constructor() {
+    this.tracks = [
+      "music_zapsplat_slow_rider.ogg",
+      "music_zapsplat_aiming_high.ogg",
+      "music_zapsplat_tech_rise.ogg",
+      "music_zapsplat_well_oiled_machine_114.ogg",
+    ].map((t) => new Audio(`./sounds/${t}`))
+    this.tracks.forEach((t) => {
+      t.volume = S.musicVolume
+      t.addEventListener("ended", () => this.onEnded())
+    })
+    this.currentTrack = Math.floor(Math.random() * this.tracks.length)
+    document.addEventListener("click", () => this.refresh())
+  }
+
+  private onEnded() {
+    this.currentTrack = (this.currentTrack + 1) % this.tracks.length
+    this.tracks[this.currentTrack].play()
+  }
+
+  private refresh() {
+    if (this.enabled()) {
+      if (!this.playing) {
+        this.tracks[this.currentTrack].play()
+      }
+      this.playing = true
+    } else {
+      this.playing = false
+      this.tracks[this.currentTrack].pause()
+    }
+  }
+
+  enabled(): boolean {
+    return window.localStorage.getItem("music") !== "off"
+  }
+  setEnabled(enabled: boolean): void {
+    window.localStorage.setItem("music", enabled ? "on" : "off")
+    this.refresh()
+  }
 }

@@ -5,7 +5,7 @@ import * as Levels from "../game/levels"
 export class Menu {
   onPlay: (index: number) => void = () => {}
 
-  constructor(private page: Page.Page) {}
+  constructor(private page: Page.Page, private music: Sound.Music) {}
 
   main() {
     this.page.showMenu("c-crits:~", [
@@ -150,7 +150,15 @@ export class Menu {
         },
       },
       {
-        name: "reset-all",
+        name: `music-${this.music.enabled() ? "off" : "on"}`,
+        action: (e: HTMLElement) => {
+          const enable = e.textContent === "music-on"
+          this.music.setEnabled(enable)
+          e.textContent = `music-${enable ? "off" : "on"}`
+        },
+      },
+      {
+        name: "reset-game",
         action: () => {
           if (
             confirm("Are you sure you want to reset all progress & settings?")
@@ -160,15 +168,6 @@ export class Menu {
           }
         },
       },
-      // {
-      //   name: "unlock-all",
-      //   action: () => {
-      //     Levels.Levels.forEach((level) => {
-      //       window.localStorage.setItem(level.Name, "true")
-      //     })
-      //     window.location.reload()
-      //   },
-      // },
       { name: "back", action: () => this.main() },
     ])
   }
@@ -185,7 +184,7 @@ export class Menu {
       /*context*/ {
         name: "credits.txt",
         body: Page.createReport(
-          "          Sounds :: zapsplat.com",
+          "  Sounds & Music :: zapsplat.com",
           "           Icons :: fontawesome.com",
           "     Code editor :: prism-code-editor",
           "         Library :: three.js",
