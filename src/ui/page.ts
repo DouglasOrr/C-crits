@@ -193,7 +193,7 @@ export class Page {
     const updateSearchResults = () => {
       const input = this.inputSearch
       const query = input.value.trim()
-      const results = Crasm.searchDocs(query).slice(0, 6)
+      const results = Crasm.searchDocs(query).slice(0, 8)
 
       this.searchResults.style.width = `${input.clientWidth}px`
       this.searchResults.style.top = `${input.offsetTop + input.offsetHeight}px`

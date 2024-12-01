@@ -175,7 +175,7 @@ class Tutorial extends Level {
       )
     }
     if (t_("welcome", "upload", /*delay*/ 4)) {
-      const program = `mov 8,2 $dst`
+      const program = `; my first program\nmov 8,2 $dst\n`
       this.page.setDefaultProgram(program)
       print(
         `<b>Upload the program</b> <code>${program}</code> to order your critter to the cell 8,2.` +

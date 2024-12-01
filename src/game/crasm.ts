@@ -255,6 +255,33 @@ export const RegisterSpecs = [
     description: "friendly critter count (number of your critters on the map)",
   },
 ]
+export const LanguageHelp = [
+  {
+    name: "op",
+    spec: "opcode a0 a1 a2",
+    description: "op: an opcode and arguments",
+  },
+  {
+    name: "label",
+    spec: "@label",
+    description: "labels are lines starting with '@'",
+  },
+  {
+    name: "comment",
+    spec: "; comment",
+    description: "ignored by crasm",
+  },
+  {
+    name: "array",
+    spec: "x,y",
+    description: "array (vector): a comma-separated list of numbers",
+  },
+  {
+    name: "null",
+    spec: "null",
+    description: "special 'missing' value",
+  },
+]
 export type Arg = { register: string } | { literal: Value }
 export type Op = { opcode: Opcode; args: Arg[]; line: number }
 export type Program = { ops: Op[]; labels: { [key: string]: number } }
@@ -823,13 +850,22 @@ export function searchDocs(query: string): SearchResult[] {
       },
       {
         spec: "$register",
-        description: RegisterSpecs.map((s) => s.name).join(" "),
+        description:
+          RegisterSpecs.map((s) => s.name).join(" ") + " | $<name>...",
       },
+      ...LanguageHelp,
     ]
   }
   query = query.toLowerCase()
   const results: SearchResult[] = []
   const added = new Set<string>()
+  // Exact match on language
+  for (const s of LanguageHelp) {
+    if (s.name.startsWith(query)) {
+      results.push(s)
+      added.add(s.name)
+    }
+  }
   // Exact match on opcodes
   for (const s of OpSpecs) {
     if (Opcode[s.code].toLowerCase().startsWith(query)) {

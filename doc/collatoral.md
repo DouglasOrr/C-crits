@@ -2,6 +2,8 @@ Thumbnail - 640 x 500 (nearly 3:2): `ffmpeg -i thumb.mp4 -vf 'fps=15,scale=630:5
 
 Embed bg - 640 x 360 (16:9).
 
+Banner - max 960 x 300 (better shorter).
+
 ---
 
 C-crits puts you in charge of an army of miniature robot critters. Lacking the intended C compiler you can program them in the assembly-like language crasm.
