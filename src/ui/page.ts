@@ -154,7 +154,7 @@ export class Page {
       if (event.ctrlKey && event.key.toLowerCase() === "q") {
         this.buttonQuit.click()
       }
-      if (event.ctrlKey && event.altKey && event.key === "u") {
+      if (event.ctrlKey && event.metaKey && event.key === "u") {
         Levels.Levels.forEach((level) => {
           window.localStorage.setItem(level.Name, "true")
         })
