@@ -89,15 +89,20 @@ export class Menu {
         },
       },
     ]
-    if (index < Levels.Levels.length - 1) {
-      options.push({
-        name: `next--${Levels.Levels[index + 1].Name}`,
-        action: () => {
-          this.onPlay(index + 1)
-        },
-      })
-    } else {
-      options.push({ name: "next--COMPLETED", action: () => this.completed() })
+    if (window.localStorage.getItem(level)) {
+      if (index < Levels.Levels.length - 1) {
+        options.push({
+          name: `next--${Levels.Levels[index + 1].Name}`,
+          action: () => {
+            this.onPlay(index + 1)
+          },
+        })
+      } else {
+        options.push({
+          name: "next--COMPLETED",
+          action: () => this.completed(),
+        })
+      }
     }
     options.push({ name: "back", action: () => this.levels() })
     this.page.showMenu(

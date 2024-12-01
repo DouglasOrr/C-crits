@@ -205,6 +205,9 @@ a {
   color: #777;
   font-style: italic;
 }
+#instructions b {
+  text-decoration: underline;
+}
 
 /* Custom Scrollbar */
 ::-webkit-scrollbar {

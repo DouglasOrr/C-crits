@@ -174,11 +174,11 @@ class Tutorial extends Level {
           " using the crasm programming language."
       )
     }
-    if (t_("welcome", "upload", /*delay*/ 3)) {
+    if (t_("welcome", "upload", /*delay*/ 4)) {
       const program = `mov 8,2 $dst`
       this.page.setDefaultProgram(program)
       print(
-        `Upload the program <code>${program}</code> to order your critter to the cell 8,2.` +
+        `<b>Upload the program</b> <code>${program}</code> to order your critter to the cell 8,2.` +
           ` Use Ctrl+Enter or click the <i class="fas fa-upload"></i> button.`
       )
     }
@@ -211,7 +211,7 @@ class Tutorial extends Level {
     if (registerContains(this.sim, "$y", 42) && t_("maths", "capture")) {
       print(
         "Now we'll capture a neutral base. The base position is stored in <code>$nnb</code>." +
-          " Set <code>$dst</code> to <code>$nnb</code> to move to the base and capture it."
+          " <b>Set <code>$dst</code> to <code>$nnb</code></b> to move to the base and capture it."
       )
     }
     // if (this.state.name == "init") {
@@ -238,7 +238,7 @@ class Tutorial extends Level {
       print(
         "Great! But it looks like the game will go on forever. To finish things, we need" +
           " to learn about control flow. The <code>jez $x @label</code> instruction jumps" +
-          " to <code>@label</code> if <code>$x</code> is zero or null. Use " +
+          " to <code>@label</code> (on its own line) if <code>$x</code> is zero or null. Use " +
           " <code>jez $ne @attack-base</code>, and write some code after <code>@attack-base</code>" +
           " to <b>attack and destroy the enemy base</b>. (Hint: use <a href='#input-search'>search</a>" +
           " to learn about <code>ret</code> and to find out which register holds the enemy base position)."
@@ -250,7 +250,7 @@ class Tutorial extends Level {
 class BreakingGround extends Level {
   static Name = "breaking-ground"
   static Map = "basic"
-  private static AchivementMaxOps = 4
+  private static AchivementMaxOps = 5
   static Achievement = {
     name: "code-golf",
     description: `longest program <= ${this.AchivementMaxOps} ops`,
@@ -258,7 +258,7 @@ class BreakingGround extends Level {
   private longestProgram: number = 0
 
   init() {
-    setAI(this.sim, AI.Defensive, AI.Defensive)
+    setAI(this.sim, AI.Defensive, AI.Static)
     setSpawn(this.sim, [
       { n: 15, max: 15 },
       { n: 15, max: 15 },
@@ -484,7 +484,7 @@ class Madness extends Level {
   init() {
     setAI(this.sim, AI.MadnessAggressive, AI.Defensive)
     setSpawn(this.sim, [
-      { n: 10, max: 30 },
+      { n: 15, max: 30 },
       { n: 30, max: 30 },
       { n: 0, max: 15 },
       { n: 0, max: 15 },

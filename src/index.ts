@@ -105,6 +105,9 @@ class Game {
     ])
     page.updatePlayPause(!this.loop.running)
     page.events = this.onEvent.bind(this)
+
+    // Postpone hiding (as hiding before the scene is drawn creates a flicker)
+    window.requestAnimationFrame(() => menu.hide())
   }
 
   update(): void {
@@ -183,7 +186,6 @@ async function loadLevel(
   textures: Textures,
   levelIndex: number
 ): Promise<Game> {
-  menu.hide()
   const LevelType = Levels.Levels[levelIndex]
   const sim = new Sim.Sim(
     await Maps.load((LevelType as any).Map),

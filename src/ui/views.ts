@@ -12,7 +12,7 @@ const S = {
 
   // Params
   bulletLength: 0.3, // m
-  bulletThickness: 0.15, // m
+  bulletThickness: 0.12, // m
   critterSizeRatio: 1.3, // #
   selectionSizeRatio: 1.5, // #
   markerParticles: 100, // #
@@ -291,7 +291,7 @@ void main() {
     // A pretty rubbish hash!
     float a = float(mod(
       (47.0 *fx + 29.0 *fx*fx + 97.0 *fy + 53.0 * fy*fy + 67.0 *fx*fy) / 22.0,
-      1.0) < 0.5);
+      1.0) < 0.4);
     gl_FragColor = vec4(color, a);
 }
 `

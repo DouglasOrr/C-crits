@@ -70,6 +70,7 @@ function formatValue(value: any): string {
 export class Page {
   // Main
   menu: HTMLElement
+  root: HTMLElement
   sim: HTMLElement
   renderer: THREE.WebGLRenderer
   // Overlays
@@ -94,6 +95,7 @@ export class Page {
   constructor() {
     // Main
     this.menu = document.getElementById("menu")!
+    this.root = document.getElementById("root")!
     this.sim = document.getElementById("col-sim")!
     // Overlays
     this.gameTime = document.getElementById("overlay-time")!
@@ -345,6 +347,7 @@ export class Page {
     context?: { name: string; body: Node }
   ): void {
     this.menu.style.display = "block"
+    this.root.style.display = "none"
     this.menu.replaceChildren()
 
     if (context !== undefined) {
@@ -408,6 +411,7 @@ export class Page {
 
   hideMenu(): void {
     this.menu.style.display = "none"
+    this.root.style.display = ""
   }
 
   render(scene: THREE.Scene, camera: THREE.Camera): void {

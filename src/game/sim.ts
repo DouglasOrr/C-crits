@@ -491,7 +491,10 @@ export class Players {
   postProgramUpdate(crits: Crits): void {
     // Selection (debug)
     if (this.userSelection !== null) {
-      if (this.userSelectionId !== crits.id[this.userSelection]) {
+      if (
+        this.userSelectionId !== crits.id[this.userSelection] ||
+        crits.player[this.userSelection] === -1
+      ) {
         this.userSelection = null
         this.userSelectionId = null
         this.listener(Event.ProgramDebug, null)
