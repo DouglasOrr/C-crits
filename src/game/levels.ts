@@ -175,8 +175,8 @@ class Tutorial extends Level {
       )
     }
     if (t_("welcome", "upload", /*delay*/ 4)) {
-      const program = `; my first program\nmov 8,2 $dst\n`
-      this.page.setDefaultProgram(program)
+      const program = `mov 8,2 $dst`
+      this.page.setDefaultProgram(`; my first program\n${program}\n`)
       print(
         `<b>Upload the program</b> <code>${program}</code> to order your critter to the cell 8,2.` +
           ` Use Ctrl+Enter or click the <i class="fas fa-upload"></i> button.`
