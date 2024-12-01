@@ -80,6 +80,55 @@ describe("parse", () => {
   })
 })
 
+describe("opcodes", () => {
+  for (const { p, i, o } of [
+    { p: "mov $a $b", i: { $a: 123 }, o: { $b: 123 } },
+    { p: "add 10 20 $z", i: {}, o: { $z: 30 } },
+    { p: "sub 5 20 $z", i: {}, o: { $z: -15 } },
+    { p: "mul 3,4 2,4 $z", i: {}, o: { $z: [6, 16] } },
+    { p: "div 9 6 $z", i: {}, o: { $z: 1.5 } },
+    { p: "mod 9 6 $z", i: {}, o: { $z: 3 } },
+    { p: "flor 12.7 $z", i: {}, o: { $z: 12 } },
+    { p: "push 10 20 $z", i: {}, o: { $z: [10, 20] } },
+    { p: "get 10,20 1 $z", i: {}, o: { $z: 20 } },
+    { p: "vlen 3,4 $z", i: {}, o: { $z: 5 } },
+    { p: "vdir 1,1 $z", i: {}, o: { $z: Math.PI / 4 } },
+    { p: "unitv 0 $z", i: {}, o: { $z: [0, 1] } },
+    { p: "jmp @n \n ret \n @n \n mov 42 $z", i: {}, o: { $z: 42 } },
+    {
+      p: "jez $a @n \n ret \n @n \n mov 42 $z", // taken
+      i: { $a: null },
+      o: { $z: 42 },
+    },
+    {
+      p: "jnz $a @n \n mov 42 $z \n @n \n ret", // not taken
+      i: { $a: 0 },
+      o: { $z: 42 },
+    },
+    {
+      p: "jlz $a @n \n ret \n @n \n mov 42 $z", // taken
+      i: { $a: -1 },
+      o: { $z: 42 },
+    },
+    {
+      p: "jgz $a @n \n mov 42 $z \n @n \n ret", // not taken
+      i: { $a: 0 },
+      o: { $z: 42 },
+    },
+    { p: "mov 10 $z \n ret \n mov 20 $z", i: {}, o: { $z: 10 } },
+    // Skip SEND and MAPL
+  ]) {
+    test(p?.replace("\n", "\\n"), () => {
+      const program = parse(p)
+      const memory = i as Memory
+      run(program, memory, {} as Maps.Map, 100, null)
+      for (const k of Object.keys(o)) {
+        expect(memory[k]).toEqual((o as any)[k])
+      }
+    })
+  }
+})
+
 test("parse--run", () => {
   const program = parse(`
     add 2,0 10,50 $tmp
