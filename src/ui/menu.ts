@@ -184,8 +184,9 @@ export class Menu {
           "           Icons :: fontawesome.com",
           "     Code editor :: prism-code-editor",
           "         Library :: three.js",
+          "  Security model :: seven-sixes.js",
           "",
-          " -- C-Crits is a game jam game by @DouglasOrr for GitHub Game Off 2024 --",
+          "-- C-Crits is a game jam game by @DouglasOrr for GitHub Game Off 2024 --",
           "https://github.com/DouglasOrr/C-crits"
         ),
       }

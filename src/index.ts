@@ -77,6 +77,7 @@ class Game {
     private level: Levels.Level,
     textures: Textures
   ) {
+    console.log("chmod $pos -w")
     this.camera = new THREE.OrthographicCamera()
     this.camera.position.z = 100
     this.views = [

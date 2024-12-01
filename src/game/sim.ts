@@ -22,7 +22,6 @@ export const S = {
   // Programming
   maxRuntimeErrors: 10, // #
   cycleLimit: 500, // #
-  password: 42, // #
 
   // Movement
   speed: 4, // m/s
@@ -713,8 +712,14 @@ export class Crits {
     return nearestPosition === null ? null : [...nearestPosition]
   }
 
+  private checkPassword(value: number | null): boolean {
+    return (
+      value !== null && value <= 100 && value % 17 === 8 && value % 11 === 9
+    )
+  }
+
   private validatePassword(mem: Memory, i: number) {
-    if (mem.$passwd !== S.password) {
+    if (!this.checkPassword(mem.$passwd)) {
       if (mem.$passwd === null) {
         // No attempt - no need to show an error
       } else if (
